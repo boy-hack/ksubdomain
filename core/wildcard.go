@@ -3,8 +3,7 @@ package core
 import "net"
 
 func IsWildCard(domain string) bool {
-	ranges := [2]int{}
-	for _, _ = range ranges {
+	for i := 0; i < 2; i++ {
 		subdomain := RandomStr(6) + "." + domain
 		_, err := net.LookupIP(subdomain)
 		if err != nil {

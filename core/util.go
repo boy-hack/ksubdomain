@@ -24,6 +24,7 @@ func RandInt64(min, max int64) int64 {
 	return rand.Int63n(max-min) + min
 }
 
+// LinesInFile 读取文件 返回每行的数组
 func LinesInFile(fileName string) ([]string, error) {
 	result := []string{}
 	f, err := os.Open(fileName)

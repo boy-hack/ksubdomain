@@ -156,7 +156,6 @@ func GetDevices(defaultSelect int) EthTable {
 	gologger.Infof("GateWay Mac:%s\n", c[0])
 	return EthTable{ip, deviceName, c[1], c[0]}
 }
-
 func getGateMacAddress(dvice string) [2]net.HardwareAddr {
 	// 获取网关mac地址
 	domain := RandomStr(4) + "paper.seebug.org"

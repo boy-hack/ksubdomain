@@ -14,7 +14,6 @@ type Options struct {
 	FileName        string
 	Resolvers       []string
 	Output          string
-	OutputCSV       bool
 	Test            bool
 	NetworkId       int
 	ListNetwork     bool
@@ -39,18 +38,17 @@ func ParseOptions() *Options {
 	domain_list := flag.String("dl", "", "从文件中读取爆破域名")
 	flag.StringVar(&options.FileName, "f", "", "字典路径,-d下文件为子域名字典，-verify下文件为需要验证的域名")
 	flag.StringVar(&options.SubNameFileName, "sf", "", "三级域名爆破字典文件(默认内置)")
-	resolvers := flag.String("s", "", "resolvers文件路径,默认使用内置DNS")
+	resolvers := flag.String("resolvers", "", "resolvers文件路径,默认使用内置DNS")
 	flag.StringVar(&options.Output, "o", "", "输出文件路径")
-	flag.BoolVar(&options.OutputCSV, "csv", false, "是否输出excel文件")
 	flag.BoolVar(&options.Test, "test", false, "测试本地最大发包数")
+
 	flag.IntVar(&options.NetworkId, "e", -1, "默认网络设备ID,默认-1，如果有多个网络设备会在命令行中选择")
 	flag.BoolVar(&options.ListNetwork, "list-network", false, "列出所有网络设备")
 	flag.BoolVar(&options.Silent, "silent", false, "使用后屏幕将仅输出域名")
 	flag.BoolVar(&options.TTL, "ttl", false, "导出格式中包含TTL选项")
-	flag.BoolVar(&options.Verify, "verify", false, "验证模式")
+	flag.BoolVar(&options.Verify, "verify", false, "验证模式,验证域名是否有记录")
 	flag.IntVar(&options.DomainLevel, "l", 1, "爆破域名层级,默认爆破一级域名")
 	flag.BoolVar(&options.SkipWildCard, "skip-wild", false, "跳过泛解析的域名")
-	flag.BoolVar(&options.FilterWildCard, "filter-wild", false, "自动分析并过滤泛解析，最终输出文件，需要与'-o'搭配")
 	flag.IntVar(&options.Retry, "retry", 3, "重试次数(同一个域名请求次数) 默认3")
 	flag.IntVar(&options.TimeOut, "timeout", 10, "超时多少时间重发 默认10s")
 	flag.BoolVar(&options.Stdin, "stdin", false, "使用stdin输入")
@@ -129,9 +127,6 @@ func ParseOptions() *Options {
 	}
 	if options.FilterWildCard && options.Silent {
 		gologger.Fatalf("不支持 filter-wild 与 silent 同时使用")
-	}
-	if options.OutputCSV && options.Output == "" {
-		gologger.Fatalf("输出excel需要指定一个路径,使用参数 -o ")
 	}
 	if (options.Silent || options.Stdin) && options.NetworkId == -1 {
 		gologger.Fatalf("slient模式或Stdin模式下需要指定-e参数\n")
