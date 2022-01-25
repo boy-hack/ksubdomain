@@ -7,7 +7,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"ksubdomain/core"
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"net"
 	"sync/atomic"
 	"time"

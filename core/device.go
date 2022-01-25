@@ -6,7 +6,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"net"
 	"time"
 )

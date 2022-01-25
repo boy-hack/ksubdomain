@@ -3,7 +3,7 @@ package runner
 import (
 	"flag"
 	"ksubdomain/core"
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"os"
 	"strconv"
 )

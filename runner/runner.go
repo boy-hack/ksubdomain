@@ -11,7 +11,7 @@ import (
 	"go.uber.org/ratelimit"
 	"io"
 	"ksubdomain/core"
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"math/rand"
 	"os"
 	"strings"
@@ -20,13 +20,13 @@ import (
 )
 
 type runner struct {
-	ether        core.EthTable
+	ether        *core.EthTable //本地网卡信息
 	hm           *hybrid.HybridMap
 	options      *Options
 	limit        ratelimit.Limiter
 	handle       *pcap.Handle
 	successIndex uint64
-	sentIndex    uint64
+	sendIndex    uint64
 	recvIndex    uint64
 	faildIndex   uint64
 	sender       chan core.StatusTable
@@ -179,7 +179,7 @@ func (r *runner) loadTargets(f io.Reader) {
 	})
 }
 func (r *runner) PrintStatus() {
-	gologger.Printf("\rSuccess:%d Sent:%d Recved:%d Faild:%d", r.successIndex, r.sentIndex, r.recvIndex, r.faildIndex)
+	gologger.Printf("\rSuccess:%d Sent:%d Recved:%d Faild:%d", r.successIndex, r.sendIndex, r.recvIndex, r.faildIndex)
 }
 func (r *runner) RunEnumeration() {
 	go r.recv()         // 启动接收线程
@@ -203,14 +203,6 @@ func (r *runner) RunEnumeration() {
 	for i := 5; i >= 0; i-- {
 		gologger.Printf("检测完毕，等待%ds\n", i)
 		time.Sleep(time.Second)
-	}
-
-	if r.options.FilterWildCard {
-		r.FilterWildCard()
-	}
-	if r.options.OutputCSV {
-		gologger.Printf("\n")
-		OutputExcel(r.options.Output)
 	}
 }
 func (r *runner) handleResult() {

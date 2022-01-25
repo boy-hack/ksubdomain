@@ -1,7 +1,7 @@
 package main
 
 import (
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"ksubdomain/runner"
 )
 

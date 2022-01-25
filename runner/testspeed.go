@@ -3,7 +3,7 @@ package runner
 import (
 	"github.com/phayes/freeport"
 	"ksubdomain/core"
-	"ksubdomain/gologger"
+	"ksubdomain/core/gologger"
 	"net"
 	"time"
 )
