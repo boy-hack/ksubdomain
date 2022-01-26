@@ -189,32 +189,26 @@ func (r *runner) PrintStatus() {
 }
 func (r *runner) RunEnumeration() {
 	ctx, cancel := context.WithCancel(r.ctx)
+	defer cancel()
 
 	go r.recvChanel(ctx)   // 启动接收线程
 	go r.handleResult(ctx) // 处理结果，打印输出
 	go r.sendCycle(ctx)    // 发送线程
 	go r.retry(ctx)        // 遍历hm，依次重试
-	// 主循环 go太快了，先循环等r.hm有值
-	now := time.Now().Unix()
-	for empty, _ := r.hm.Empty(); empty; {
-		time.Sleep(time.Millisecond * 200)
-		if time.Now().Unix()-now >= 5 {
-			break
+
+	t := time.NewTicker(300 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			r.PrintStatus()
 		}
-	}
-	// r.hm 有值了，再循环等待它没值
-	for empty, _ := r.hm.Empty(); !empty; {
-		r.PrintStatus()
-		time.Sleep(time.Millisecond * 300)
-	}
-	gologger.Printf("\n")
-	for i := 5; i >= 0; i-- {
-		gologger.Printf("检测完毕，等待%ds\n", i)
-		time.Sleep(time.Second)
 	}
 }
 
 func (r *runner) Close() {
+	close(r.recver)
+	close(r.sender)
 	r.handle.Close()
 	r.hm.Close()
 }

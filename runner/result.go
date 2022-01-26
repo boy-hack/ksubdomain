@@ -30,8 +30,7 @@ func (r *runner) handleResult(ctx context.Context) {
 			gologger.Errorf("写入结果文件失败：%s\n", err.Error())
 		}
 	}
-	for {
-		result := <-r.recver
+	for result := range r.recver {
 		var content []string
 		content = append(content, result.Subdomain)
 		for _, v := range result.Answers {

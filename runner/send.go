@@ -2,11 +2,12 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"ksubdomain/core"
+	"ksubdomain/core/device"
 	"ksubdomain/core/gologger"
 	"net"
 	"sync/atomic"
@@ -14,9 +15,8 @@ import (
 )
 
 func (r *runner) sendCycle(ctx context.Context) {
-	for {
+	for sender := range r.sender {
 		r.limit.Take()
-		sender := <-r.sender
 		if sender.Retry > r.maxRetry {
 			r.hm.Del(sender.Domain)
 			atomic.AddUint64(&r.faildIndex, 1)
@@ -32,10 +32,10 @@ func (r *runner) sendCycle(ctx context.Context) {
 		}
 		_ = r.hm.Set(sender.Domain, buff.Bytes())
 		send(sender.Domain, sender.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
-		atomic.AddUint64(&r.sentIndex, 1)
+		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }
-func send(domain string, dnsname string, ether core.EthTable, dnsid uint16, freeport uint16, handle *pcap.Handle) {
+func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle) {
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
 		SrcMAC:       ether.SrcMac,
