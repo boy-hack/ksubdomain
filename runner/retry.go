@@ -2,13 +2,13 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"ksubdomain/core"
 	"time"
 )
 
-func (r *runner) retry() {
-	time.Sleep(time.Second * time.Duration(r.timeout-1))
+func (r *runner) retry(ctx context.Context, chanel chan string) {
 	for {
 		// 循环检测超时的队列
 		r.hm.Scan(func(_ []byte, buff []byte) error {

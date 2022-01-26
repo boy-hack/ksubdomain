@@ -2,7 +2,6 @@ package core
 
 import (
 	"github.com/google/gopacket/layers"
-	"net"
 )
 
 // 本地状态表
@@ -18,11 +17,4 @@ type StatusTable struct {
 type RecvResult struct {
 	Subdomain string
 	Answers   []layers.DNSResourceRecord
-}
-
-type EthTable struct {
-	SrcIp  net.IP
-	Device string
-	SrcMac net.HardwareAddr
-	DstMac net.HardwareAddr
 }

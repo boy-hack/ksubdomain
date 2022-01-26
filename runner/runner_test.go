@@ -1,6 +1,9 @@
 package runner
 
-import "testing"
+import (
+	"ksubdomain/core/options"
+	"testing"
+)
 
 func TestRunner(t *testing.T) {
 	defaultDns := []string{
@@ -11,15 +14,13 @@ func TestRunner(t *testing.T) {
 		"182.254.116.116",
 		"114.114.114.115",
 	}
-	o := Options{
+	o := options.Options{
 		Rate:            100,
 		Domain:          []string{"i.hacking8.com", "www.hacking8.com", "xxxx.hacking8.com", "www.hacking8.com", "xxxx.hacking8.com", "www.hacking8.com", "xxxx.hacking8.com", "www.hacking8.com", "xxxx.hacking8.com"},
 		FileName:        "",
 		Resolvers:       defaultDns,
 		Output:          "",
-		OutputCSV:       false,
 		Test:            false,
-		NetworkId:       1,
 		ListNetwork:     false,
 		Silent:          false,
 		TTL:             false,

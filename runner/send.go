@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func (r *runner) sendCycle() {
+func (r *runner) sendCycle(ctx context.Context) {
 	for {
 		r.limit.Take()
 		sender := <-r.sender

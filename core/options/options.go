@@ -1,4 +1,4 @@
-package runner
+package options
 
 import (
 	"flag"
@@ -15,7 +15,6 @@ type Options struct {
 	Resolvers       []string
 	Output          string
 	Test            bool
-	NetworkId       int
 	ListNetwork     bool
 	Silent          bool
 	TTL             bool
@@ -42,7 +41,6 @@ func ParseOptions() *Options {
 	flag.StringVar(&options.Output, "o", "", "输出文件路径")
 	flag.BoolVar(&options.Test, "test", false, "测试本地最大发包数")
 
-	flag.IntVar(&options.NetworkId, "e", -1, "默认网络设备ID,默认-1，如果有多个网络设备会在命令行中选择")
 	flag.BoolVar(&options.ListNetwork, "list-network", false, "列出所有网络设备")
 	flag.BoolVar(&options.Silent, "silent", false, "使用后屏幕将仅输出域名")
 	flag.BoolVar(&options.TTL, "ttl", false, "导出格式中包含TTL选项")
@@ -127,9 +125,6 @@ func ParseOptions() *Options {
 	}
 	if options.FilterWildCard && options.Silent {
 		gologger.Fatalf("不支持 filter-wild 与 silent 同时使用")
-	}
-	if (options.Silent || options.Stdin) && options.NetworkId == -1 {
-		gologger.Fatalf("slient模式或Stdin模式下需要指定-e参数\n")
 	}
 	return options
 }

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/google/gopacket"
@@ -11,7 +12,7 @@ import (
 	"time"
 )
 
-func (r *runner) recv() error {
+func (r *runner) recvChanel(ctx context.Context) error {
 	var (
 		snapshotLen = 65536
 		timeout     = -1 * time.Second
@@ -77,7 +78,11 @@ func (r *runner) recv() error {
 			continue
 		}
 		subdomain := string(dns.Questions[0].Name)
+
+		r.lock.Lock()
 		_ = r.hm.Del(subdomain)
+		r.lock.Unlock()
+
 		if dns.ANCount > 0 {
 			atomic.AddUint64(&r.successIndex, 1)
 			result := core.RecvResult{

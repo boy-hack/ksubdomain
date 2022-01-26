@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/boy-hack/hmap/store/hybrid"
@@ -11,7 +12,9 @@ import (
 	"go.uber.org/ratelimit"
 	"io"
 	"ksubdomain/core"
+	"ksubdomain/core/device"
 	"ksubdomain/core/gologger"
+	options2 "ksubdomain/core/options"
 	"math/rand"
 	"os"
 	"strings"
@@ -20,9 +23,9 @@ import (
 )
 
 type runner struct {
-	ether        *core.EthTable //本地网卡信息
+	ether        *device.EtherTable //本地网卡信息
 	hm           *hybrid.HybridMap
-	options      *Options
+	options      *options2.Options
 	limit        ratelimit.Limiter
 	handle       *pcap.Handle
 	successIndex uint64
@@ -36,24 +39,25 @@ type runner struct {
 	maxRetry     int    // 最大重试次数
 	timeout      int64
 	lock         sync.RWMutex
+	ctx          context.Context
 }
 
-func New(options *Options) (*runner, error) {
+func New(options *options2.Options) (*runner, error) {
 	version := pcap.Version()
 	r := new(runner)
 	r.options = options
 	gologger.Infof(version + "\n")
 	if options.ListNetwork {
-		core.GetIpv4Devices()
+		device.GetIpv4Devices()
 		os.Exit(0)
 	}
-	var ether core.EthTable
-	if options.NetworkId == -1 {
-		ether = core.AutoGetDevices()
-	} else {
-		ether = core.GetDevices(options.NetworkId)
-	}
+	ether := device.AutoGetDevices()
 	r.ether = ether
+	gologger.Infof("Use Device: %s\n", ether.Device)
+	gologger.Infof("Use IP:%s\n", ether.SrcIp.String())
+	gologger.Infof("Local Mac:%s\n", ether.SrcMac.String())
+	gologger.Infof("GateWay Mac:%s\n", ether.DstMac.String())
+
 	if options.Test {
 		TestSpeed(ether)
 		os.Exit(0)
@@ -82,8 +86,9 @@ func New(options *Options) (*runner, error) {
 		if options.Verify {
 			f = strings.NewReader(strings.Join(options.Domain, "\n"))
 		} else if options.FileName == "" {
-			gologger.Infof("加载内置字典\n")
-			f = strings.NewReader(core.GetSubdomainData())
+			subdomainDict := core.GetDefaultSubdomainData()
+			gologger.Infof("加载内置字典:%d\n", len(subdomainDict))
+			f = strings.NewReader(strings.Join(subdomainDict, "\n"))
 		}
 	} else {
 		f2, err := os.Open(options.FileName)
@@ -118,13 +123,13 @@ func New(options *Options) (*runner, error) {
 	}
 	gologger.Infof("设置rate:%dpps\n", options.Rate)
 	gologger.Infof("DNS:%s\n", options.Resolvers)
-	r.handle, err = core.PcapInit(ether.Device)
+	r.handle, err = device.PcapInit(ether.Device)
 	if err != nil {
 		return nil, err
 	}
-	r.limit = ratelimit.New(int(options.Rate)) // per second
-	r.sender = make(chan core.StatusTable, 1000)
-	r.recver = make(chan core.RecvResult)
+	r.limit = ratelimit.New(int(options.Rate))  // per second
+	r.sender = make(chan core.StatusTable, 999) // 可多个协程发送
+	r.recver = make(chan core.RecvResult)       // 只用一个协程接收，这里不会影响性能
 	tmpFreeport, err := freeport.GetFreePort()
 	if err != nil {
 		return nil, err
@@ -135,10 +140,11 @@ func New(options *Options) (*runner, error) {
 	r.maxRetry = r.options.Retry
 	r.timeout = int64(r.options.TimeOut)
 	r.lock = sync.RWMutex{}
+	r.ctx = context.Background()
 	go r.loadTargets(f)
 	return r, nil
 }
-func (r *runner) ChoseDns() string {
+func (r *runner) choseDns() string {
 	dns := r.options.Resolvers
 	return dns[rand.Intn(len(dns))]
 }
@@ -170,7 +176,7 @@ func (r *runner) loadTargets(f io.Reader) {
 		domain := string(byte_domain)
 		r.sender <- core.StatusTable{
 			Domain:      domain,
-			Dns:         r.ChoseDns(),
+			Dns:         r.choseDns(),
 			Time:        0,
 			Retry:       0,
 			DomainLevel: 0,
@@ -182,10 +188,12 @@ func (r *runner) PrintStatus() {
 	gologger.Printf("\rSuccess:%d Sent:%d Recved:%d Faild:%d", r.successIndex, r.sendIndex, r.recvIndex, r.faildIndex)
 }
 func (r *runner) RunEnumeration() {
-	go r.recv()         // 启动接收线程
-	go r.handleResult() // 处理结果，打印输出
-	go r.sendCycle()    // 发送线程
-	go r.retry()        // 遍历hm，依次重试
+	ctx, cancel := context.WithCancel(r.ctx)
+
+	go r.recvChanel(ctx)   // 启动接收线程
+	go r.handleResult(ctx) // 处理结果，打印输出
+	go r.sendCycle(ctx)    // 发送线程
+	go r.retry(ctx)        // 遍历hm，依次重试
 	// 主循环 go太快了，先循环等r.hm有值
 	now := time.Now().Unix()
 	for empty, _ := r.hm.Empty(); empty; {
@@ -205,56 +213,7 @@ func (r *runner) RunEnumeration() {
 		time.Sleep(time.Second)
 	}
 }
-func (r *runner) handleResult() {
-	var isWrite bool = false
-	var err error
-	var windowWith int
 
-	if r.options.Silent {
-		windowWith = 0
-	} else {
-		windowWith = core.GetWindowWith()
-	}
-
-	if r.options.Output != "" {
-		isWrite = true
-	}
-	var foutput *os.File
-	if isWrite {
-		foutput, err = os.OpenFile(r.options.Output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
-		if err != nil {
-			gologger.Errorf("写入结果文件失败：%s\n", err.Error())
-		}
-	}
-	for {
-		result := <-r.recver
-		var content []string
-		content = append(content, result.Subdomain)
-		for _, v := range result.Answers {
-			content = append(content, v.String())
-		}
-		msg := strings.Join(content, " => ")
-
-		fontlenth := windowWith - len(msg) - 1
-		if !r.options.Silent {
-			if windowWith > 0 && fontlenth > 0 {
-				gologger.Silentf("\r%s% *s\n", msg, fontlenth, "")
-			} else {
-				gologger.Silentf("\r%s\n", msg)
-			}
-		} else {
-			gologger.Silentf("%s\n", msg)
-		}
-		if isWrite {
-			w := bufio.NewWriter(foutput)
-			_, err = w.WriteString(content[0] + "\n")
-			if err != nil {
-				gologger.Errorf("写入结果文件失败.Err:%s\n", err.Error())
-			}
-			_ = w.Flush()
-		}
-	}
-}
 func (r *runner) Close() {
 	r.handle.Close()
 	r.hm.Close()

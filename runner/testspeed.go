@@ -3,6 +3,7 @@ package runner
 import (
 	"github.com/phayes/freeport"
 	"ksubdomain/core"
+	"ksubdomain/core/device"
 	"ksubdomain/core/gologger"
 	"net"
 	"time"
@@ -19,7 +20,7 @@ func TestSpeed(ether core.EthTable) {
 		gologger.Fatalf("freeport error:" + err.Error())
 		return
 	}
-	handle, err := core.PcapInit(ether.Device)
+	handle, err := device.PcapInit(ether.Device)
 	if err != nil {
 		gologger.Fatalf("初始化pcap失败,error:" + err.Error())
 		return
