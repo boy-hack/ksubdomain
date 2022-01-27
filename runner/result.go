@@ -45,6 +45,8 @@ func (r *runner) handleResult(ctx context.Context) {
 			} else {
 				gologger.Silentf("\r%s\n", msg)
 			}
+			// 打印一下结果,可以看得更直观
+			r.PrintStatus()
 		} else {
 			gologger.Silentf("%s\n", msg)
 		}

@@ -40,7 +40,6 @@ func ParseOptions() *Options {
 	resolvers := flag.String("resolvers", "", "resolvers文件路径,默认使用内置DNS")
 	flag.StringVar(&options.Output, "o", "", "输出文件路径")
 	flag.BoolVar(&options.Test, "test", false, "测试本地最大发包数")
-
 	flag.BoolVar(&options.ListNetwork, "list-network", false, "列出所有网络设备")
 	flag.BoolVar(&options.Silent, "silent", false, "使用后屏幕将仅输出域名")
 	flag.BoolVar(&options.TTL, "ttl", false, "导出格式中包含TTL选项")
