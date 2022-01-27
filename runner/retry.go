@@ -31,7 +31,7 @@ func (r *runner) retry(ctx context.Context) {
 		// 延时，map越多延时越大
 		length := r.hm.Length()
 		if length < 100 {
-			length = 1000
+			length = 500
 		} else if length < 1000 {
 			length = 1500
 		} else if length < 5000 {
@@ -42,6 +42,5 @@ func (r *runner) retry(ctx context.Context) {
 			length = 5500
 		}
 		time.Sleep(time.Millisecond * time.Duration(length))
-		r.firstRetryChanel <- "ok"
 	}
 }
