@@ -4,7 +4,12 @@ hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdom
 
 ## 优化
 在原ksubdomain的代码上进行了优化,精简了一些功能，只专注于快速子域名爆破。因为没有多网卡环境，此版本只支持单网卡。
+## Example
+```bash
+./ksubdomain -d baidu.com -b 5m // 5M的宽带扫描baidu.com
 
+./ksubdomain -f domain.txt -verify// 验证域名
+```
 ## 参考
 - 原ksubdomain https://github.com/knownsec/ksubdomain
 - 从 Masscan, Zmap 源码分析到开发实践 <https://paper.seebug.org/1052/>
