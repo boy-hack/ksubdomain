@@ -20,13 +20,14 @@ func TestSpeed(ether *device.EtherTable) {
 		return
 	}
 	handle, err := device.PcapInit(ether.Device)
+	defer handle.Close()
 	if err != nil {
 		gologger.Fatalf("初始化pcap失败,error:" + err.Error())
 		return
 	}
 	var now int64
 	for {
-		send("seebug.org", "8.8.8.8", ether, dnsid, uint16(tmpFreeport), handle)
+		send("www.hacking8.com", "1.1.1.2", ether, dnsid, uint16(tmpFreeport), handle)
 		index++
 		now = time.Now().UnixNano() / 1e6
 		tickTime := (now - start) / 1000

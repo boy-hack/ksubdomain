@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/google/gopacket/pcap"
 	"github.com/phayes/freeport"
-	_ "github.com/projectdiscovery/fdmax/autofdmax"
 	"go.uber.org/ratelimit"
 	"io"
 	"ksubdomain/core"
@@ -22,24 +21,25 @@ import (
 )
 
 type runner struct {
-	ether           *device.EtherTable //本地网卡信息
-	hm              *statusdb.StatusDb
-	options         *options2.Options
-	limit           ratelimit.Limiter
-	handle          *pcap.Handle
-	successIndex    uint64
-	sendIndex       uint64
-	recvIndex       uint64
-	faildIndex      uint64
-	sender          chan statusdb.Item
-	recver          chan core.RecvResult
-	freeport        int
-	dnsid           uint16 // dnsid 用于接收的确定ID
-	maxRetry        int    // 最大重试次数
-	timeout         int64  // 超时xx秒后重试
-	ctx             context.Context
-	fisrtloadChanel chan string // 数据加载完毕的chanel
-	startTime       time.Time
+	ether            *device.EtherTable //本地网卡信息
+	hm               *statusdb.StatusDb
+	options          *options2.Options
+	limit            ratelimit.Limiter
+	handle           *pcap.Handle
+	successIndex     uint64
+	sendIndex        uint64
+	recvIndex        uint64
+	faildIndex       uint64
+	sender           chan string
+	recver           chan core.RecvResult
+	freeport         int
+	dnsid            uint16 // dnsid 用于接收的确定ID
+	maxRetry         int    // 最大重试次数
+	timeout          int64  // 超时xx秒后重试
+	ctx              context.Context
+	fisrtloadChanel  chan string // 数据加载完毕的chanel
+	firstRetryChanel chan string
+	startTime        time.Time
 }
 
 func New(options *options2.Options) (*runner, error) {
@@ -139,7 +139,7 @@ func New(options *options2.Options) (*runner, error) {
 		return nil, err
 	}
 	r.limit = ratelimit.New(int(options.Rate)) // per second
-	r.sender = make(chan statusdb.Item, 999)   // 可多个协程发送
+	r.sender = make(chan string, 999)          // 可多个协程发送
 	r.recver = make(chan core.RecvResult)      // 只用一个协程接收，这里不会影响性能
 	tmpFreeport, err := freeport.GetFreePort()
 	if err != nil {
@@ -152,6 +152,7 @@ func New(options *options2.Options) (*runner, error) {
 	r.timeout = int64(r.options.TimeOut)
 	r.ctx = context.Background()
 	r.fisrtloadChanel = make(chan string)
+	r.firstRetryChanel = make(chan string)
 	r.startTime = time.Now()
 	go r.loadTargets(f)
 	return r, nil
@@ -171,32 +172,18 @@ func (r *runner) loadTargets(f io.Reader) {
 		msg := string(line)
 		if r.options.Verify {
 			// send msg
-			item := statusdb.Item{
-				Domain:      msg,
-				Dns:         r.choseDns(),
-				Time:        0,
-				Retry:       0,
-				DomainLevel: 0,
-			}
-			r.sender <- item
+			r.sender <- msg
 		} else {
 			for _, tmpDomain := range r.options.Domain {
 				newDomain := msg + "." + tmpDomain
-				item := statusdb.Item{
-					Domain:      newDomain,
-					Dns:         r.choseDns(),
-					Time:        0,
-					Retry:       0,
-					DomainLevel: 0,
-				}
-				r.sender <- item
+				r.sender <- newDomain
 			}
 		}
 	}
 	r.fisrtloadChanel <- "ok"
 }
 func (r *runner) PrintStatus() {
-	queue := r.Length()
+	queue := r.hm.Length()
 	tc := int(time.Since(r.startTime).Seconds())
 	gologger.Printf("\rSuccess:%d Send:%d Queue:%d Accept:%d Fail:%d Elapsed:%ds", r.successIndex, r.sendIndex, queue, r.recvIndex, r.faildIndex, tc)
 }
@@ -208,15 +195,15 @@ func (r *runner) RunEnumeration() {
 	go r.sendCycle(ctx)    // 发送线程
 	go r.handleResult(ctx) // 处理结果，打印输出
 
-	var isLoadOver int = 0 // 是否加载文件完毕
+	var isLoadOver bool = false // 是否加载文件完毕
 	t := time.NewTicker(300 * time.Millisecond)
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			r.PrintStatus()
-			if isLoadOver >= 1 {
-				if r.Length() == 0 {
+			if isLoadOver {
+				if r.hm.Length() == 0 {
 					gologger.Printf("\n")
 					gologger.Infof("扫描完毕")
 					return
@@ -224,16 +211,12 @@ func (r *runner) RunEnumeration() {
 			}
 		case <-r.fisrtloadChanel:
 			go r.retry(ctx) // 遍历hm，依次重试
-			isLoadOver = 1
+		case <-r.firstRetryChanel:
+			isLoadOver = true
 		}
 	}
 }
-func (r *runner) Length() int {
-	r.hm.Mu.Lock()
-	defer r.hm.Mu.Unlock()
-	length := len(r.hm.Items)
-	return length
-}
+
 func (r *runner) Close() {
 	close(r.recver)
 	close(r.sender)

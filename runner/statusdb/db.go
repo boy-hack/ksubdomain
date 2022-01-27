@@ -29,7 +29,18 @@ func (r *StatusDb) Set(domain string, tableData Item) {
 	defer r.Mu.Unlock()
 	r.Items[domain] = tableData
 }
-
+func (r *StatusDb) Get(domain string) (Item, bool) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	v, ok := r.Items[domain]
+	return v, ok
+}
+func (r *StatusDb) Length() int {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	length := len(r.Items)
+	return length
+}
 func (r *StatusDb) Del(domain string) {
 	r.Mu.Lock()
 	defer r.Mu.Unlock()

@@ -7,19 +7,31 @@ import (
 	"github.com/google/gopacket/pcap"
 	"ksubdomain/core/device"
 	"ksubdomain/core/gologger"
+	"ksubdomain/runner/statusdb"
 	"net"
 	"sync/atomic"
 	"time"
 )
 
 func (r *runner) sendCycle(ctx context.Context) {
-	for sender := range r.sender {
+	for domain := range r.sender {
 		r.limit.Take()
-		newSender := sender
-		newSender.Retry += 1
-		newSender.Time = time.Now().Unix()
-		r.hm.Set(newSender.Domain, newSender)
-		send(newSender.Domain, newSender.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
+		v, ok := r.hm.Get(domain)
+		if !ok {
+			v = statusdb.Item{
+				Domain:      domain,
+				Dns:         r.choseDns(),
+				Time:        time.Now().Unix(),
+				Retry:       0,
+				DomainLevel: 0,
+			}
+		} else {
+			v.Retry += 1
+			v.Time = time.Now().Unix()
+			v.Dns = r.choseDns()
+		}
+		r.hm.Set(domain, v)
+		send(domain, v.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
 		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }

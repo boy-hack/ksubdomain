@@ -106,7 +106,7 @@ func ParseOptions() *Options {
 	default:
 		gologger.Fatalf("unknown bandwith suffix '%s' (supported suffixes are G,M and K)\n", suffix)
 	}
-	packSize := int64(100) // 一个DNS包大概有74byte
+	packSize := int64(80) // 一个DNS包大概有74byte
 	rate = rate / packSize
 	options.Rate = rate
 	if (len(options.Domain) == 0 && !options.Stdin && (!options.Verify && options.FileName == "")) && !options.Test && !options.ListNetwork {
