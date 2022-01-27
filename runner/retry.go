@@ -12,8 +12,9 @@ func (r *runner) retry(ctx context.Context) {
 		// 循环检测超时的队列
 		currentTime := time.Now().Unix()
 		r.hm.Scan(func(key string, v statusdb.Item) error {
+			// Scan自带锁，不要调用其他r.hm下的函数。。
 			if v.Retry > r.maxRetry {
-				r.hm.Del(key)
+				delete(r.hm.Items, key)
 				atomic.AddUint64(&r.faildIndex, 1)
 				return nil
 			}

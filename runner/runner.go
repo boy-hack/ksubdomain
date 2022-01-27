@@ -41,6 +41,7 @@ type runner struct {
 	lock            sync.RWMutex
 	ctx             context.Context
 	fisrtloadChanel chan string // 数据加载完毕的chanel
+	startTime       time.Time
 }
 
 func New(options *options2.Options) (*runner, error) {
@@ -154,6 +155,7 @@ func New(options *options2.Options) (*runner, error) {
 	r.lock = sync.RWMutex{}
 	r.ctx = context.Background()
 	r.fisrtloadChanel = make(chan string)
+	r.startTime = time.Now()
 	go r.loadTargets(f)
 	return r, nil
 }
@@ -197,7 +199,9 @@ func (r *runner) loadTargets(f io.Reader) {
 	r.fisrtloadChanel <- "ok"
 }
 func (r *runner) PrintStatus() {
-	gologger.Printf("\rSuccess:%d Sent:%d Recved:%d Faild:%d", r.successIndex, r.sendIndex, r.recvIndex, r.faildIndex)
+	queue := r.Length()
+	tc := int(time.Since(r.startTime).Seconds())
+	gologger.Printf("\rSuccess:%d Send:%d Queue:%d Accept:%d Fail:%d Elapsed:%ds", r.successIndex, r.sendIndex, queue, r.recvIndex, r.faildIndex, tc)
 }
 func (r *runner) RunEnumeration() {
 	ctx, cancel := context.WithCancel(r.ctx)
@@ -215,11 +219,8 @@ func (r *runner) RunEnumeration() {
 		case <-t.C:
 			r.PrintStatus()
 			if isLoadOver >= 1 {
-				t.Reset(time.Second)
 				if r.Length() == 0 {
-					isLoadOver += 1
-				}
-				if isLoadOver >= 5 {
+					gologger.Printf("\n")
 					gologger.Infof("扫描完毕")
 					return
 				}
