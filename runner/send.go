@@ -1,9 +1,7 @@
 package runner
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -17,21 +15,11 @@ import (
 func (r *runner) sendCycle(ctx context.Context) {
 	for sender := range r.sender {
 		r.limit.Take()
-		if sender.Retry > r.maxRetry {
-			r.hm.Del(sender.Domain)
-			atomic.AddUint64(&r.faildIndex, 1)
-			continue
-		}
-		sender.Retry += 1
-		sender.Time = time.Now().Unix()
-		var buff bytes.Buffer
-		enc := gob.NewEncoder(&buff)
-		err := enc.Encode(sender)
-		if err != nil {
-			continue
-		}
-		_ = r.hm.Set(sender.Domain, buff.Bytes())
-		send(sender.Domain, sender.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
+		newSender := sender
+		newSender.Retry += 1
+		newSender.Time = time.Now().Unix()
+		r.hm.Set(newSender.Domain, newSender)
+		send(newSender.Domain, newSender.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
 		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }

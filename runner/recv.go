@@ -78,11 +78,7 @@ func (r *runner) recvChanel(ctx context.Context) error {
 			continue
 		}
 		subdomain := string(dns.Questions[0].Name)
-
-		r.lock.Lock()
-		_ = r.hm.Del(subdomain)
-		r.lock.Unlock()
-
+		r.hm.Del(subdomain)
 		if dns.ANCount > 0 {
 			atomic.AddUint64(&r.successIndex, 1)
 			result := core.RecvResult{

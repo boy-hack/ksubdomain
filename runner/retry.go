@@ -1,30 +1,34 @@
 package runner
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
-	"ksubdomain/core"
+	"ksubdomain/runner/statusdb"
+	"sync/atomic"
 	"time"
 )
 
-func (r *runner) retry(ctx context.Context, chanel chan string) {
+func (r *runner) retry(ctx context.Context) {
 	for {
 		// 循环检测超时的队列
-		r.hm.Scan(func(_ []byte, buff []byte) error {
-			out := core.StatusTable{}
-			dec := gob.NewDecoder(bytes.NewReader(buff))
-			err := dec.Decode(&out)
-			if err != nil {
-				return err
+		currentTime := time.Now().Unix()
+		r.hm.Scan(func(key string, v statusdb.Item) error {
+			if v.Retry > r.maxRetry {
+				r.hm.Del(key)
+				atomic.AddUint64(&r.faildIndex, 1)
+				return nil
 			}
-			currentTime := time.Now().Unix()
-			if currentTime-out.Time >= r.timeout {
+			if currentTime-v.Time >= r.timeout {
 				// 重新发送
-				out.Time = time.Now().Unix()
-				r.sender <- out
+				newItem := v
+				newItem.Time = time.Now().Unix()
+				newItem.Retry += 1
+				newItem.Dns = r.choseDns()
+				r.sender <- newItem
 			}
 			return nil
 		})
+		// 延时，map越多延时越大
+		length := r.Length()
+		time.Sleep(time.Millisecond * time.Duration(length))
 	}
 }
