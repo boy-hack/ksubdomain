@@ -18,7 +18,6 @@ import (
 	"math/rand"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -38,7 +37,6 @@ type runner struct {
 	dnsid           uint16 // dnsid 用于接收的确定ID
 	maxRetry        int    // 最大重试次数
 	timeout         int64  // 超时xx秒后重试
-	lock            sync.RWMutex
 	ctx             context.Context
 	fisrtloadChanel chan string // 数据加载完毕的chanel
 	startTime       time.Time
@@ -152,7 +150,6 @@ func New(options *options2.Options) (*runner, error) {
 	r.dnsid = 0x2021 // set dnsid 65500
 	r.maxRetry = r.options.Retry
 	r.timeout = int64(r.options.TimeOut)
-	r.lock = sync.RWMutex{}
 	r.ctx = context.Background()
 	r.fisrtloadChanel = make(chan string)
 	r.startTime = time.Now()

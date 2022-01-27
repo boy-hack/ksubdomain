@@ -30,6 +30,17 @@ func (r *runner) retry(ctx context.Context) {
 		})
 		// 延时，map越多延时越大
 		length := r.Length()
+		if length < 100 {
+			length = 1000
+		} else if length < 1000 {
+			length = 1500
+		} else if length < 5000 {
+			length = 3500
+		} else if length < 10000 {
+			length = 4500
+		} else {
+			length = 5500
+		}
 		time.Sleep(time.Millisecond * time.Duration(length))
 	}
 }
