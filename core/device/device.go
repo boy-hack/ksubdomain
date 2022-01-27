@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -94,6 +95,7 @@ func AutoGetDevices() *EtherTable {
 		select {
 		case c := <-signal:
 			cancel()
+			fmt.Print("\n")
 			return c
 		default:
 			_, _ = net.LookupHost(domain)

@@ -1,3 +1,4 @@
 .idea
-#go.sum
+go.sum
 test2
+ksubdomain.yaml

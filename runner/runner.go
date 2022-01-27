@@ -53,12 +53,26 @@ func New(options *options2.Options) (*runner, error) {
 		device.GetIpv4Devices()
 		os.Exit(0)
 	}
-	ether := device.AutoGetDevices()
+	filename := "ksubdomain.yaml"
+	var ether *device.EtherTable
+	if core.FileExists(filename) {
+		ether, err = device.ReadConfig(filename)
+		if err != nil {
+			gologger.Fatalf("读取配置失败:%v", err)
+		}
+		gologger.Infof("读取配置%s成功!\n", filename)
+	} else {
+		ether = device.AutoGetDevices()
+		err = ether.SaveConfig(filename)
+		if err != nil {
+			gologger.Fatalf("保存配置失败:%v", err)
+		}
+	}
 	r.ether = ether
 	gologger.Infof("Use Device: %s\n", ether.Device)
 	gologger.Infof("Use IP:%s\n", ether.SrcIp.String())
-	gologger.Infof("Local Mac:%s\n", ether.SrcMac.String())
-	gologger.Infof("GateWay Mac:%s\n", ether.DstMac.String())
+	gologger.Infof("Local Mac: %s\n", ether.SrcMac.String())
+	gologger.Infof("GateWay Mac: %s\n", ether.DstMac.String())
 
 	if options.Test {
 		TestSpeed(ether)
