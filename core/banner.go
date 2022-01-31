@@ -1,10 +1,10 @@
 package core
 
 import (
+	"ksubdomain/core/conf"
 	"ksubdomain/core/gologger"
 )
 
-const Version = "1.4"
 const banner = `
  _              _         _                       _       
 | | _____ _   _| |__   __| | ___  _ __ ___   __ _(_)_ __  
@@ -16,5 +16,5 @@ const banner = `
 
 func ShowBanner() {
 	gologger.Printf(banner)
-	gologger.Infof("Current Version: %s\n", Version)
+	gologger.Infof("Current Version: %s\n", conf.Version)
 }
