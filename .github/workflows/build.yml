@@ -26,6 +26,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install libpcap-dev -y
 
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
@@ -39,11 +43,11 @@ jobs:
         run: |
           mkdir ksubdomain-dist
           cp ksubdomain ksubdomain-dist
-          tar -czvf ksubdomain-${{ github.ref }}-${{ matrix.os }}.tar.gz ksubdomain-dist
+          tar -czvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz ksubdomain-dist
 
       - name: Upload to release
         uses: JasonEtco/upload-to-release@master
         with:
-          args: ksubdomain-${{ github.ref }}-${{ matrix.os }}.tar.gz application/octet-stream
+          args: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz application/octet-stream
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN }}
