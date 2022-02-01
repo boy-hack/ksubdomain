@@ -16,7 +16,6 @@ jobs:
           - macos-latest
 #          - windows-latest
     steps:
-
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
         with:
@@ -34,11 +33,17 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -o ./ksubdomain_${{ github.ref }}_${{ runner.os }} ./cmd/
+        run: go build -o ./ksubdomain ./cmd/
 
-      - name: Upload a build artifact
-        uses: actions/upload-artifact@v2
+      - name: Gzip
+        run: |
+          mkdir ksubdomain-dist
+          cp ksubdomain ksubdomain-dist
+          tar -czvf ksubdomain-${{ github.ref }}-${{ matrix.os }}.tar.gz ksubdomain-dist
+
+      - name: Upload to release
+        uses: JasonEtco/upload-to-release@master
         with:
-          name: ksubdomain_latest_${{ runner.os }}_amd64
-          path: ksubdomain*
-          if-no-files-found: error
+          args: ksubdomain-${{ github.ref }}-${{ matrix.os }}.tar.gz application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
