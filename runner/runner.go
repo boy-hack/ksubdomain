@@ -74,7 +74,7 @@ func New(options *options2.Options) (*runner, error) {
 	r.ether = GetDeviceConfig()
 	r.hm = statusdb.CreateMemoryDB()
 
-	gologger.Infof("设置rate:%dpps\n", options.Rate)
+	gologger.Infof("Rate:%dpps\n", options.Rate)
 	gologger.Infof("DNS:%s\n", options.Resolvers)
 	r.handle, err = device.PcapInit(r.ether.Device)
 	if err != nil {
@@ -83,20 +83,21 @@ func New(options *options2.Options) (*runner, error) {
 	r.limit = ratelimit.New(int(options.Rate)) // per second
 	r.sender = make(chan string, 999)          // 可多个协程发送
 	r.recver = make(chan core.RecvResult)      // 只用一个协程接收，这里不会影响性能
-	r.loadTargets()
 
 	tmpFreeport, err := freeport.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
 	r.freeport = tmpFreeport
-	gologger.Infof("获取FreePort:%d\n", tmpFreeport)
+	gologger.Infof("FreePort:%d\n", tmpFreeport)
 	r.dnsid = 0x2021 // set dnsid 65500
 	r.maxRetry = r.options.Retry
 	r.timeout = int64(r.options.TimeOut)
 	r.ctx = context.Background()
 	r.fisrtloadChanel = make(chan string)
 	r.startTime = time.Now()
+
+	go r.loadTargets()
 	return r, nil
 }
 func (r *runner) choseDns() string {
@@ -156,25 +157,23 @@ func (r *runner) loadTargets() {
 		gologger.Infof("检测域名:%s\n", options.Domain)
 	}
 
-	go func() {
-		for {
-			line, _, err := reader.ReadLine()
-			if err != nil {
-				break
-			}
-			msg := string(line)
-			if r.options.Method == "verify" {
-				// send msg
-				r.sender <- msg
-			} else {
-				for _, tmpDomain := range r.options.Domain {
-					newDomain := msg + "." + tmpDomain
-					r.sender <- newDomain
-				}
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			break
+		}
+		msg := string(line)
+		if r.options.Method == "verify" {
+			// send msg
+			r.sender <- msg
+		} else {
+			for _, tmpDomain := range r.options.Domain {
+				newDomain := msg + "." + tmpDomain
+				r.sender <- newDomain
 			}
 		}
-		r.fisrtloadChanel <- "ok"
-	}()
+	}
+	r.fisrtloadChanel <- "ok"
 }
 func (r *runner) PrintStatus() {
 	queue := r.hm.Length()

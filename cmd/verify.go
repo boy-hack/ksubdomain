@@ -58,7 +58,7 @@ var verifyCommand = &cli.Command{
 		&cli.IntFlag{
 			Name:  "timeout",
 			Usage: "超时时间",
-			Value: 30,
+			Value: 6,
 		},
 		&cli.BoolFlag{
 			Name:  "stdin",

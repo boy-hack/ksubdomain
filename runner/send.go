@@ -38,8 +38,8 @@ func (r *runner) sendCycle(ctx context.Context) {
 func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle) {
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
-		SrcMAC:       ether.SrcMac,
-		DstMAC:       ether.DstMac,
+		SrcMAC:       ether.SrcMac.HardwareAddr(),
+		DstMAC:       ether.DstMac.HardwareAddr(),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	// Our IPv4 header

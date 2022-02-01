@@ -78,8 +78,8 @@ func AutoGetDevices() *EtherTable {
 									etherTable := EtherTable{
 										SrcIp:  data[drviceName],
 										Device: drviceName,
-										SrcMac: eth.DstMAC,
-										DstMac: eth.SrcMAC,
+										SrcMac: SelfMac(eth.DstMAC),
+										DstMac: SelfMac(eth.SrcMAC),
 									}
 									signal <- &etherTable
 									return
