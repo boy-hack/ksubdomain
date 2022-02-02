@@ -4,7 +4,7 @@ hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdom
 
 ## Useage
 ```bash
- kk@MacBook-Pro  ~/programs/ksubdomain   main ●  ./ksubdomain
+w8ay@MacBook-Pro  ~/programs/ksubdomain   main ●  ./ksubdomain
 
 NAME:
    KSubdomain - 无状态子域名爆破工具
