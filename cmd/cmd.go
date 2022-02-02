@@ -9,9 +9,9 @@ import (
 
 func main() {
 	app := &cli.App{
-		Name:        conf.AppName,
-		Version:     conf.Version,
-		Description: conf.Description,
+		Name:    conf.AppName,
+		Version: conf.Version,
+		Usage:   conf.Description,
 		Commands: []*cli.Command{
 			enumCommand,
 			verifyCommand,
