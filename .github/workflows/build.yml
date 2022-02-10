@@ -12,9 +12,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - windows-latest
           - ubuntu-latest
           - macos-latest
+          - windows-latest
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -49,13 +49,13 @@ jobs:
 #          path: ksubdomain
 #          if-no-files-found: error
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@master
         with:
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
           files: ksubdomain-${{ runner.os }}
           fail_on_unmatched_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN }}
           append_body: true
         env:
           GITHUB_REPOSITORY: boy-hack/ksubdomain
