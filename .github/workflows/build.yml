@@ -13,8 +13,8 @@ jobs:
       matrix:
         os:
           - windows-latest
-#          - ubuntu-latest
-#          - macos-latest
+          - ubuntu-latest
+          - macos-latest
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -38,13 +38,24 @@ jobs:
 
       - name: Build
         run: |
-          go build -o ./ksubdomain ./cmd/
-          chmod +x ksubdomain
+          go build -o ./ksubdomain-${{ runner.os }} ./cmd/
+          chmod +x ksubdomain-${{ runner.os }}
 #          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
 
-      - name: Upload a build artifact
-        uses: actions/upload-artifact@v2
+#      - name: Upload a build artifact
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: ksubdomain-${{ runner.os }}
+#          path: ksubdomain
+#          if-no-files-found: error
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: ksubdomain-${{ runner.os }}
-          path: ksubdomain
-          if-no-files-found: error
+          # note you'll typically need to create a personal access token
+          # with permissions to create releases in the other repo
+          files: ksubdomain-${{ runner.os }}
+          fail_on_unmatched_files: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          append_body: true
+        env:
+          GITHUB_REPOSITORY: boy-hack/ksubdomain
