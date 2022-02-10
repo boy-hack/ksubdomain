@@ -39,11 +39,12 @@ jobs:
       - name: Build
         run: |
           go build -o ./ksubdomain ./cmd/
-#          tar -czvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar.gz ksubdomain
+          chmod +x ksubdomain
+          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
 
       - name: Upload a build artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}_amd64
-          path: ksubdomain
+          name: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}
+          path: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar
           if-no-files-found: error
