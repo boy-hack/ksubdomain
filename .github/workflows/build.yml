@@ -41,12 +41,18 @@ jobs:
           go build -o ./ksubdomain ./cmd/
           chmod +x ksubdomain
           tar -cvf Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
+        if: matrix.os == 'windows-latest'
+      - name: Build-On-Windows
+        run: |
+          go build -o ./ksubdomain ./cmd/
+          chmod +x ksubdomain
+          tar -cvf Ksubdomain-${{ runner.os }}.tar ksubdomain
       - name: Release
         uses: softprops/action-gh-release@master
         with:
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
-          files: Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar
+          files: Ksubdomain-*
           fail_on_unmatched_files: true
           token: ${{ secrets.TOKEN }}
           append_body: true
