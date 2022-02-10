@@ -13,8 +13,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
           - windows-latest
+          - macos-latest
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -41,12 +41,12 @@ jobs:
           go build -o ./ksubdomain ./cmd/
           chmod +x ksubdomain
           tar -cvf Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
-        if: matrix.os == 'windows-latest'
-      - name: Build-On-Windows
+        if: matrix.os != 'windows-latest'
+      - name: Build On Windows
         run: |
-          go build -o ./ksubdomain ./cmd/
-          chmod +x ksubdomain
-          tar -cvf Ksubdomain-${{ runner.os }}.tar ksubdomain
+          go build -o ./ksubdomain.exe ./cmd/
+          tar -cvf Ksubdomain-${{ runner.os }}.tar ksubdomain.exe
+        if: matrix.os == 'windows-latest'
       - name: Release
         uses: softprops/action-gh-release@master
         with:
