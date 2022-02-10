@@ -39,7 +39,7 @@ jobs:
       - name: Build
         run: |
           go build -o ./ksubdomain ./cmd/
-          tar -czvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar.gz ./ksubdomain
+          tar -czvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar.gz ksubdomain
 
       - name: Upload a build artifact
         uses: actions/upload-artifact@v2
