@@ -12,9 +12,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - macos-latest
-    #          - windows-latest
+          - windows-latest
+#          - ubuntu-latest
+#          - macos-latest
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -26,9 +26,9 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install libpcap-dev -y
 
-      - name: Get version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+#      - name: Get version
+#        id: get_version
+#        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
@@ -40,11 +40,11 @@ jobs:
         run: |
           go build -o ./ksubdomain ./cmd/
           chmod +x ksubdomain
-          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
+#          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
 
       - name: Upload a build artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}
-          path: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar
+          name: ksubdomain-${{ runner.os }}
+          path: ksubdomain
           if-no-files-found: error

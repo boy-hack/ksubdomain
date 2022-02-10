@@ -2,3 +2,4 @@
 go.sum
 test2
 ksubdomain.yaml
+dist/
