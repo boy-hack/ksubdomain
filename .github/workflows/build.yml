@@ -38,22 +38,15 @@ jobs:
 
       - name: Build
         run: |
-          go build -o ./ksubdomain-${{ runner.os }} ./cmd/
-          chmod +x ksubdomain-${{ runner.os }}
-#          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
-
-#      - name: Upload a build artifact
-#        uses: actions/upload-artifact@v2
-#        with:
-#          name: ksubdomain-${{ runner.os }}
-#          path: ksubdomain
-#          if-no-files-found: error
+          go build -o ./ksubdomain ./cmd/
+          chmod +x ksubdomain
+          tar -cvf Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
       - name: Release
         uses: softprops/action-gh-release@master
         with:
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
-          files: ksubdomain-${{ runner.os }}
+          files: Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar
           fail_on_unmatched_files: true
           token: ${{ secrets.TOKEN }}
           append_body: true
