@@ -3,14 +3,15 @@ package statusdb
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type Item struct {
-	Domain      string // 查询域名
-	Dns         string // 查询dns
-	Time        int64  // 发送时间
-	Retry       int    // 重试次数
-	DomainLevel int    // 域名层级
+	Domain      string    // 查询域名
+	Dns         string    // 查询dns
+	Time        time.Time // 发送时间
+	Retry       int       // 重试次数
+	DomainLevel int       // 域名层级
 }
 
 type StatusDb struct {

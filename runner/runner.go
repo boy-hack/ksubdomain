@@ -11,6 +11,7 @@ import (
 	"ksubdomain/core/gologger"
 	options2 "ksubdomain/core/options"
 	"ksubdomain/runner/statusdb"
+	"math"
 	"math/rand"
 	"os"
 	"strings"
@@ -36,6 +37,7 @@ type runner struct {
 	ctx             context.Context
 	fisrtloadChanel chan string // 数据加载完毕的chanel
 	startTime       time.Time
+	domains         []string
 }
 
 func GetDeviceConfig() *device.EtherTable {
@@ -66,23 +68,32 @@ func New(options *options2.Options) (*runner, error) {
 	version := pcap.Version()
 	r := new(runner)
 	gologger.Infof(version + "\n")
-	//if options.ListNetwork {
-	//	device.GetIpv4Devices()
-	//	os.Exit(0)
-	//}
+
 	r.options = options
 	r.ether = GetDeviceConfig()
 	r.hm = statusdb.CreateMemoryDB()
 
-	gologger.Infof("Rate:%dpps\n", options.Rate)
 	gologger.Infof("DNS:%s\n", options.Resolvers)
 	r.handle, err = device.PcapInit(r.ether.Device)
 	if err != nil {
 		return nil, err
 	}
-	r.limit = ratelimit.New(int(options.Rate)) // per second
-	r.sender = make(chan string, 999)          // 多个协程发送
-	r.recver = make(chan core.RecvResult, 99)  // 多个协程接收
+	// 根据发包总数和timeout时间来合理分配每秒速度
+	// limit2 = 发包总数/timeout
+	// limit = min(limit2,options.Rate)
+
+	allPacket := r.loadTargets()
+	calcLimit := float64(allPacket/options.TimeOut) * 0.85
+	limit := int(math.Min(calcLimit, float64(options.Rate)))
+	if limit == 0 {
+		panic("预估长度失败")
+		//limit = int(options.Rate)
+	}
+	r.limit = ratelimit.New(limit) // per second
+	gologger.Infof("Rate:%dpps\n", limit)
+
+	r.sender = make(chan string, 99)          // 多个协程发送
+	r.recver = make(chan core.RecvResult, 99) // 多个协程接收
 
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
@@ -97,7 +108,13 @@ func New(options *options2.Options) (*runner, error) {
 	r.fisrtloadChanel = make(chan string)
 	r.startTime = time.Now()
 
-	go r.loadTargets()
+	go func() {
+		for _, msg := range r.domains {
+			r.sender <- msg
+		}
+		r.domains = nil
+		r.fisrtloadChanel <- "ok"
+	}()
 	return r, nil
 }
 func (r *runner) choseDns() string {
@@ -105,13 +122,14 @@ func (r *runner) choseDns() string {
 	return dns[rand.Intn(len(dns))]
 }
 
-func (r *runner) loadTargets() {
+func (r *runner) loadTargets() int {
 	// get targets
 	var reader *bufio.Reader
 	options := r.options
 	if options.Method == "verify" {
 		if options.Stdin {
 			reader = bufio.NewReader(os.Stdin)
+
 		} else {
 			f2, err := os.Open(options.FileName)
 			if err != nil {
@@ -167,15 +185,15 @@ func (r *runner) loadTargets() {
 		msg := string(line)
 		if r.options.Method == "verify" {
 			// send msg
-			r.sender <- msg
+			r.domains = append(r.domains, msg)
 		} else {
 			for _, tmpDomain := range r.options.Domain {
 				newDomain := msg + "." + tmpDomain
-				r.sender <- newDomain
+				r.domains = append(r.domains, newDomain)
 			}
 		}
 	}
-	r.fisrtloadChanel <- "ok"
+	return len(r.domains)
 }
 func (r *runner) PrintStatus() {
 	queue := r.hm.Length()
@@ -185,9 +203,10 @@ func (r *runner) PrintStatus() {
 func (r *runner) RunEnumeration() {
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
-
-	go r.recvChanel(ctx)   // 启动接收线程
-	go r.sendCycle(ctx)    // 发送线程
+	go r.recvChanel(ctx) // 启动接收线程
+	for i := 0; i < 3; i++ {
+		go r.sendCycle(ctx) // 发送线程
+	}
 	go r.handleResult(ctx) // 处理结果，打印输出
 
 	var isLoadOver bool = false // 是否加载文件完毕

@@ -21,14 +21,14 @@ func (r *runner) sendCycle(ctx context.Context) {
 			v = statusdb.Item{
 				Domain:      domain,
 				Dns:         r.choseDns(),
-				Time:        time.Now().Unix(),
+				Time:        time.Now(),
 				Retry:       0,
 				DomainLevel: 0,
 			}
 			r.hm.Add(domain, v)
 		} else {
 			v.Retry += 1
-			v.Time = time.Now().Unix()
+			v.Time = time.Now()
 			v.Dns = r.choseDns()
 			r.hm.Set(domain, v)
 		}
