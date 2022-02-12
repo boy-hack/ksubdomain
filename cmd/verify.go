@@ -36,7 +36,7 @@ var commonFlags = []cli.Flag{
 	},
 	&cli.IntFlag{
 		Name:  "retry",
-		Usage: "重试次数",
+		Usage: "重试次数,当为-1时将一直重试",
 		Value: 3,
 	},
 	&cli.IntFlag{
