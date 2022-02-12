@@ -19,6 +19,7 @@ type Options struct {
 	TimeOut      int
 	Retry        int
 	Method       string // verify模式 enum模式 test模式
+	OnlyDomain   bool
 }
 
 func Band2Rate(bandWith string) int64 {
@@ -88,8 +89,12 @@ func (opt *Options) Check() {
 		if opt.FileName != "" && !core.FileExists(opt.FileName) {
 			gologger.Fatalf("字典文件:%s 不存在! \n", opt.FileName)
 		}
-		if len(opt.Domain) == 0 {
-			gologger.Fatalf("域名未指定目标")
+		if opt.Stdin {
+
+		} else {
+			if len(opt.Domain) == 0 {
+				gologger.Fatalf("域名未指定目标")
+			}
 		}
 	}
 }

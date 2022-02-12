@@ -18,7 +18,7 @@ var commonFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:     "resolvers",
 		Aliases:  []string{"r"},
-		Usage:    "dns服务器地址",
+		Usage:    "dns服务器文件路径，一行一个dns地址",
 		Required: false,
 		Value:    "",
 	},
@@ -34,11 +34,6 @@ var commonFlags = []cli.Flag{
 		Usage: "使用后屏幕将仅输出域名",
 		Value: false,
 	},
-	&cli.BoolFlag{
-		Name:  "skip-wild",
-		Usage: "跳过泛解析域名",
-		Value: false,
-	},
 	&cli.IntFlag{
 		Name:  "retry",
 		Usage: "重试次数",
@@ -51,8 +46,14 @@ var commonFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  "stdin",
-		Usage: "使用stdin输入",
+		Usage: "接受stdin输入",
 		Value: false,
+	},
+	&cli.BoolFlag{
+		Name:    "only-domain",
+		Aliases: []string{"od"},
+		Usage:   "只打印域名",
+		Value:   false,
 	},
 }
 
@@ -81,10 +82,11 @@ var verifyCommand = &cli.Command{
 			Output:       c.String("output"),
 			Silent:       c.Bool("silent"),
 			Stdin:        c.Bool("stdin"),
-			SkipWildCard: c.Bool("skip-wild"),
+			SkipWildCard: false,
 			TimeOut:      c.Int("timeout"),
 			Retry:        c.Int("retry"),
 			Method:       "verify",
+			OnlyDomain:   c.Bool("only-domain"),
 		}
 		opt.Check()
 

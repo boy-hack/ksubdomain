@@ -34,6 +34,11 @@ var enumCommand = &cli.Command{
 			Required: false,
 			Value:    "",
 		},
+		&cli.BoolFlag{
+			Name:  "skip-wild",
+			Usage: "跳过泛解析域名",
+			Value: false,
+		},
 	}...),
 	Action: func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
@@ -63,6 +68,7 @@ var enumCommand = &cli.Command{
 			TimeOut:      c.Int("timeout"),
 			Retry:        c.Int("retry"),
 			Method:       "enum",
+			OnlyDomain:   c.Bool("only-domain"),
 		}
 		opt.Check()
 

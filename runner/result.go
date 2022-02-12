@@ -32,23 +32,29 @@ func (r *runner) handleResult(ctx context.Context) {
 	}
 	for result := range r.recver {
 		var content []string
+		var msg string
 		content = append(content, result.Subdomain)
-		for _, v := range result.Answers {
-			content = append(content, v.String())
-		}
-		msg := strings.Join(content, " => ")
 
-		fontlenth := windowsWidth - len(msg) - 1
+		if r.options.OnlyDomain {
+			msg = result.Subdomain
+		} else {
+			for _, v := range result.Answers {
+				content = append(content, v.String())
+			}
+			msg = strings.Join(content, " => ")
+		}
+
+		screenWidth := windowsWidth - len(msg) - 1
 		if !r.options.Silent {
-			if windowsWidth > 0 && fontlenth > 0 {
-				gologger.Silentf("\r%s% *s\n", msg, fontlenth, "")
+			if windowsWidth > 0 && screenWidth > 0 {
+				gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
 			} else {
 				gologger.Silentf("\r%s\n", msg)
 			}
 			// 打印一下结果,可以看得更直观
 			r.PrintStatus()
 		} else {
-			gologger.Silentf("%s\n", content[0])
+			gologger.Silentf("%s\n", msg)
 		}
 		if isWrite {
 			w := bufio.NewWriter(foutput)

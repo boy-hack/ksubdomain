@@ -65,12 +65,12 @@ func New(options *options2.Options) (*runner, error) {
 	var err error
 	version := pcap.Version()
 	r := new(runner)
-	r.options = options
 	gologger.Infof(version + "\n")
 	//if options.ListNetwork {
 	//	device.GetIpv4Devices()
 	//	os.Exit(0)
 	//}
+	r.options = options
 	r.ether = GetDeviceConfig()
 	r.hm = statusdb.CreateMemoryDB()
 
@@ -81,8 +81,8 @@ func New(options *options2.Options) (*runner, error) {
 		return nil, err
 	}
 	r.limit = ratelimit.New(int(options.Rate)) // per second
-	r.sender = make(chan string, 999)          // 可多个协程发送
-	r.recver = make(chan core.RecvResult)      // 只用一个协程接收，这里不会影响性能
+	r.sender = make(chan string, 999)          // 多个协程发送
+	r.recver = make(chan core.RecvResult, 99)  // 多个协程接收
 
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
@@ -140,19 +140,21 @@ func (r *runner) loadTargets() {
 			}
 			reader = bufio.NewReader(strings.NewReader(strings.Join(subdomainDict, "\n")))
 		}
-	}
-	if options.SkipWildCard && len(options.Domain) > 0 {
-		var tmpDomains []string
-		gologger.Infof("检测泛解析\n")
-		for _, domain := range options.Domain {
-			if !core.IsWildCard(domain) {
-				tmpDomains = append(tmpDomains, domain)
-			} else {
-				gologger.Warningf("域名:%s 存在泛解析记录,已跳过\n", domain)
+
+		if options.SkipWildCard && len(options.Domain) > 0 {
+			var tmpDomains []string
+			gologger.Infof("检测泛解析\n")
+			for _, domain := range options.Domain {
+				if !core.IsWildCard(domain) {
+					tmpDomains = append(tmpDomains, domain)
+				} else {
+					gologger.Warningf("域名:%s 存在泛解析记录,已跳过\n", domain)
+				}
 			}
+			options.Domain = tmpDomains
 		}
-		options.Domain = tmpDomains
 	}
+
 	if len(options.Domain) > 0 {
 		gologger.Infof("检测域名:%s\n", options.Domain)
 	}
