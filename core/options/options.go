@@ -20,6 +20,7 @@ type Options struct {
 	Retry        int
 	Method       string // verify模式 enum模式 test模式
 	OnlyDomain   bool
+	NotPrint     bool
 }
 
 func Band2Rate(bandWith string) int64 {

@@ -78,18 +78,13 @@ func New(options *options2.Options) (*runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 根据发包总数和timeout时间来合理分配每秒速度
-	// limit2 = 发包总数/timeout
-	// limit = min(limit2,options.Rate)
 
+	// 根据发包总数和timeout时间来分配每秒速度
 	allPacket := r.loadTargets()
 	calcLimit := float64(allPacket/options.TimeOut) * 0.85
 	limit := int(math.Min(calcLimit, float64(options.Rate)))
-	if limit == 0 {
-		panic("预估长度失败")
-		//limit = int(options.Rate)
-	}
 	r.limit = ratelimit.New(limit) // per second
+
 	gologger.Infof("Rate:%dpps\n", limit)
 
 	r.sender = make(chan string, 99)          // 多个协程发送

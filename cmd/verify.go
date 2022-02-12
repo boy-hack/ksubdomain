@@ -55,6 +55,12 @@ var commonFlags = []cli.Flag{
 		Usage:   "只打印域名",
 		Value:   false,
 	},
+	&cli.BoolFlag{
+		Name:    "not-print",
+		Aliases: []string{"np"},
+		Usage:   "不打印域名",
+		Value:   false,
+	},
 }
 
 var verifyCommand = &cli.Command{

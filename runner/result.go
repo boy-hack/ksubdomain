@@ -30,12 +30,14 @@ func (r *runner) handleResult(ctx context.Context) {
 			gologger.Errorf("写入结果文件失败：%s\n", err.Error())
 		}
 	}
+	onlyDomain := r.options.OnlyDomain
+	notPrint := r.options.NotPrint
 	for result := range r.recver {
 		var content []string
 		var msg string
 		content = append(content, result.Subdomain)
 
-		if r.options.OnlyDomain {
+		if onlyDomain {
 			msg = result.Subdomain
 		} else {
 			for _, v := range result.Answers {
@@ -44,18 +46,21 @@ func (r *runner) handleResult(ctx context.Context) {
 			msg = strings.Join(content, " => ")
 		}
 
-		screenWidth := windowsWidth - len(msg) - 1
-		if !r.options.Silent {
-			if windowsWidth > 0 && screenWidth > 0 {
-				gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
+		if !notPrint {
+			screenWidth := windowsWidth - len(msg) - 1
+			if !r.options.Silent {
+				if windowsWidth > 0 && screenWidth > 0 {
+					gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
+				} else {
+					gologger.Silentf("\r%s\n", msg)
+				}
+				// 打印一下结果,可以看得更直观
+				r.PrintStatus()
 			} else {
-				gologger.Silentf("\r%s\n", msg)
+				gologger.Silentf("%s\n", msg)
 			}
-			// 打印一下结果,可以看得更直观
-			r.PrintStatus()
-		} else {
-			gologger.Silentf("%s\n", msg)
 		}
+
 		if isWrite {
 			w := bufio.NewWriter(foutput)
 			_, err = w.WriteString(msg + "\n")
