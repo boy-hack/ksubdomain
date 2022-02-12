@@ -13,8 +13,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - windows-latest
           - macos-latest
-    #          - windows-latest
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -37,32 +37,24 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -o ./ksubdomain ./cmd/
-
-      - name: Gzip
         run: |
-          mkdir ksubdomain-dist
-          cp ksubdomain ksubdomain-dist
-          tar -czvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz ksubdomain-dist
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+          go build -o ./ksubdomain ./cmd/
+          chmod +x ksubdomain
+          tar -cvf Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
+        if: matrix.os != 'windows-latest'
+      - name: Build On Windows
+        run: |
+          go build -o ./ksubdomain.exe ./cmd/
+          tar -cvf Ksubdomain-${{ runner.os }}.tar ksubdomain.exe
+        if: matrix.os == 'windows-latest'
+      - name: Release
+        uses: softprops/action-gh-release@master
         with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
-          body: |
-            新版本发布
-          draft: false
-          prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
+          # note you'll typically need to create a personal access token
+          # with permissions to create releases in the other repo
+          files: Ksubdomain-*
+          fail_on_unmatched_files: true
+          token: ${{ secrets.TOKEN }}
+          append_body: true
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz
-          asset_name: ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ matrix.os }}.tar.gz
-          asset_content_type: application/gzip
+          GITHUB_REPOSITORY: boy-hack/ksubdomain
