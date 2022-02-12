@@ -48,11 +48,11 @@ func (r *runner) handleResult(ctx context.Context) {
 			// 打印一下结果,可以看得更直观
 			r.PrintStatus()
 		} else {
-			gologger.Silentf("%s\n", msg)
+			gologger.Silentf("%s\n", content[0])
 		}
 		if isWrite {
 			w := bufio.NewWriter(foutput)
-			_, err = w.WriteString(content[0] + "\n")
+			_, err = w.WriteString(msg + "\n")
 			if err != nil {
 				gologger.Errorf("写入结果文件失败.Err:%s\n", err.Error())
 			}

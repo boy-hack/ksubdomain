@@ -15,7 +15,7 @@ func (r *runner) retry(ctx context.Context) {
 		r.hm.Scan(func(key string, v statusdb.Item) error {
 			// Scan自带锁，不要调用其他r.hm下的函数。。
 			if v.Retry > r.maxRetry {
-				delete(r.hm.Items, key)
+				r.hm.Del(key)
 				atomic.AddUint64(&r.faildIndex, 1)
 				return nil
 			}

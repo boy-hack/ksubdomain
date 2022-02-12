@@ -25,12 +25,13 @@ func (r *runner) sendCycle(ctx context.Context) {
 				Retry:       0,
 				DomainLevel: 0,
 			}
+			r.hm.Add(domain, v)
 		} else {
 			v.Retry += 1
 			v.Time = time.Now().Unix()
 			v.Dns = r.choseDns()
+			r.hm.Set(domain, v)
 		}
-		r.hm.Set(domain, v)
 		send(domain, v.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
 		atomic.AddUint64(&r.sendIndex, 1)
 	}

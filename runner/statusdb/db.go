@@ -1,6 +1,9 @@
 package statusdb
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 type Item struct {
 	Domain      string // 查询域名
@@ -11,49 +14,51 @@ type Item struct {
 }
 
 type StatusDb struct {
-	Items map[string]Item
-	Mu    sync.RWMutex
+	Items  sync.Map
+	length int64
 }
 
 // 内存简易读写数据库，自带锁机制
 func CreateMemoryDB() *StatusDb {
 	db := &StatusDb{
-		Items: map[string]Item{},
-		Mu:    sync.RWMutex{},
+		Items:  sync.Map{},
+		length: 0,
 	}
 	return db
 }
-
+func (r *StatusDb) Add(domain string, tableData Item) {
+	r.Items.Store(domain, tableData)
+	atomic.AddInt64(&r.length, 1)
+}
 func (r *StatusDb) Set(domain string, tableData Item) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-	r.Items[domain] = tableData
+	r.Items.Store(domain, tableData)
 }
 func (r *StatusDb) Get(domain string) (Item, bool) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	v, ok := r.Items[domain]
-	return v, ok
+	v, ok := r.Items.Load(domain)
+	if !ok {
+		return Item{}, false
+	}
+	return v.(Item), ok
 }
-func (r *StatusDb) Length() int {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	length := len(r.Items)
-	return length
+func (r *StatusDb) Length() int64 {
+	return r.length
 }
 func (r *StatusDb) Del(domain string) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-	delete(r.Items, domain)
+	//r.Mu.Lock()
+	//defer r.Mu.Unlock()
+	_, ok := r.Items.LoadAndDelete(domain)
+	if ok {
+		atomic.AddInt64(&r.length, -1)
+	}
 }
 
 func (r *StatusDb) Scan(f func(key string, value Item) error) {
-	r.Mu.Lock()
-	defer r.Mu.Unlock()
-
-	for k, item := range r.Items {
+	r.Items.Range(func(key, value interface{}) bool {
+		k := key.(string)
+		item := value.(Item)
 		f(k, item)
-	}
+		return true
+	})
 }
 func (r *StatusDb) Close() {
 

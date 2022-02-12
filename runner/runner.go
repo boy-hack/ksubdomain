@@ -84,12 +84,12 @@ func New(options *options2.Options) (*runner, error) {
 	r.sender = make(chan string, 999)          // 可多个协程发送
 	r.recver = make(chan core.RecvResult)      // 只用一个协程接收，这里不会影响性能
 
-	tmpFreeport, err := freeport.GetFreePort()
+	freePort, err := freeport.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
-	r.freeport = tmpFreeport
-	gologger.Infof("FreePort:%d\n", tmpFreeport)
+	r.freeport = freePort
+	gologger.Infof("FreePort:%d\n", freePort)
 	r.dnsid = 0x2021 // set dnsid 65500
 	r.maxRetry = r.options.Retry
 	r.timeout = int64(r.options.TimeOut)

@@ -12,14 +12,7 @@ var enumCommand = &cli.Command{
 	Name:    "enum",
 	Aliases: []string{"e"},
 	Usage:   "枚举域名",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "band",
-			Aliases:  []string{"b"},
-			Usage:    "宽带的下行速度，可以5M,5K,5G",
-			Required: false,
-			Value:    "1m",
-		},
+	Flags: append(commonFlags, []cli.Flag{
 		&cli.StringFlag{
 			Name:     "domain",
 			Aliases:  []string{"d"},
@@ -41,46 +34,7 @@ var enumCommand = &cli.Command{
 			Required: false,
 			Value:    "",
 		},
-		&cli.StringFlag{
-			Name:     "resolvers",
-			Aliases:  []string{"r"},
-			Usage:    "dns服务器地址",
-			Required: false,
-			Value:    "",
-		},
-		&cli.StringFlag{
-			Name:     "output",
-			Aliases:  []string{"o"},
-			Usage:    "输出文件名",
-			Required: false,
-			Value:    "",
-		},
-		&cli.BoolFlag{
-			Name:  "silent",
-			Usage: "使用后屏幕将仅输出域名",
-			Value: false,
-		},
-		&cli.BoolFlag{
-			Name:  "skip-wild",
-			Usage: "跳过泛解析域名",
-			Value: false,
-		},
-		&cli.IntFlag{
-			Name:  "retry",
-			Usage: "重试次数",
-			Value: 3,
-		},
-		&cli.IntFlag{
-			Name:  "timeout",
-			Usage: "超时时间",
-			Value: 30,
-		},
-		&cli.BoolFlag{
-			Name:  "stdin",
-			Usage: "使用stdin输入",
-			Value: false,
-		},
-	},
+	}...),
 	Action: func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
 			cli.ShowCommandHelpAndExit(c, "enum", 0)
