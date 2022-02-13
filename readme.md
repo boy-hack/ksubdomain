@@ -2,6 +2,8 @@ ksubdomain是一款基于无状态的子域名爆破工具，类似无状态端�
 
 hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdomain
 
+![](image.gif)
+
 ## Useage
 ```bash
 NAME:
