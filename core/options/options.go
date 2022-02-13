@@ -74,11 +74,12 @@ func GetResolvers(resolvers string) []string {
 	return rs
 }
 func (opt *Options) Check() {
-	core.ShowBanner()
 
 	if opt.Silent {
 		gologger.MaxLevel = gologger.Silent
 	}
+
+	core.ShowBanner()
 
 	if opt.Method == "verify" {
 		if opt.Stdin {
