@@ -86,6 +86,9 @@ func New(options *options2.Options) (*runner, error) {
 		allPacket = allPacket * int(math.Pow(float64(len(options.LevelDomains)), float64(options.Level-2)))
 	}
 	calcLimit := float64(allPacket/options.TimeOut) * 0.85
+	if calcLimit < 1000 {
+		calcLimit = 1000
+	}
 	limit := int(math.Min(calcLimit, float64(options.Rate)))
 	r.limit = ratelimit.New(limit) // per second
 
