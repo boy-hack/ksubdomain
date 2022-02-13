@@ -21,6 +21,8 @@ type Options struct {
 	Method       string // verify模式 enum模式 test模式
 	OnlyDomain   bool
 	NotPrint     bool
+	Level        int
+	LevelDomains []string
 }
 
 func Band2Rate(bandWith string) int64 {

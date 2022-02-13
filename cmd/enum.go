@@ -39,6 +39,18 @@ var enumCommand = &cli.Command{
 			Usage: "跳过泛解析域名",
 			Value: false,
 		},
+		&cli.IntFlag{
+			Name:    "level",
+			Aliases: []string{"l"},
+			Usage:   "枚举几级域名，默认为2，二级域名",
+			Value:   2,
+		},
+		&cli.StringFlag{
+			Name:    "level-dict",
+			Aliases: []string{"ld"},
+			Usage:   "枚举多级域名的字典文件，当level大于2时候使用，不填则会默认",
+			Value:   "",
+		},
 	}...),
 	Action: func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
@@ -56,6 +68,18 @@ var enumCommand = &cli.Command{
 			}
 			domains = append(dl, domains...)
 		}
+		levelDict := c.String("level-dict")
+		var levelDomains []string
+		if levelDict != "" {
+			dl, err := core.LinesInFile(levelDict)
+			if err != nil {
+				gologger.Fatalf("读取domain文件失败:%s,请检查--level-dict参数\n", err.Error())
+			}
+			levelDomains = dl
+		} else if c.Int("level") > 2 {
+			levelDomains = core.GetDefaultSubNextData()
+		}
+
 		opt := &options.Options{
 			Rate:         options.Band2Rate(c.String("band")),
 			Domain:       domains,
@@ -69,6 +93,9 @@ var enumCommand = &cli.Command{
 			Retry:        c.Int("retry"),
 			Method:       "enum",
 			OnlyDomain:   c.Bool("only-domain"),
+			NotPrint:     c.Bool("not-print"),
+			Level:        c.Int("level"),
+			LevelDomains: levelDomains,
 		}
 		opt.Check()
 

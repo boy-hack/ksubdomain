@@ -52,13 +52,13 @@ var commonFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "only-domain",
 		Aliases: []string{"od"},
-		Usage:   "只打印域名",
+		Usage:   "只打印域名，不显示ip",
 		Value:   false,
 	},
 	&cli.BoolFlag{
 		Name:    "not-print",
 		Aliases: []string{"np"},
-		Usage:   "不打印域名",
+		Usage:   "不打印域名结果",
 		Value:   false,
 	},
 }
@@ -93,6 +93,7 @@ var verifyCommand = &cli.Command{
 			Retry:        c.Int("retry"),
 			Method:       "verify",
 			OnlyDomain:   c.Bool("only-domain"),
+			NotPrint:     c.Bool("not-print"),
 		}
 		opt.Check()
 

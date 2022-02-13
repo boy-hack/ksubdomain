@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"github.com/google/gopacket/pcap"
 	"github.com/phayes/freeport"
 	"go.uber.org/ratelimit"
@@ -81,6 +82,9 @@ func New(options *options2.Options) (*runner, error) {
 
 	// 根据发包总数和timeout时间来分配每秒速度
 	allPacket := r.loadTargets()
+	if options.Level > 2 {
+		allPacket = allPacket * int(math.Pow(float64(len(options.LevelDomains)), float64(options.Level-2)))
+	}
 	calcLimit := float64(allPacket/options.TimeOut) * 0.85
 	limit := int(math.Min(calcLimit, float64(options.Rate)))
 	r.limit = ratelimit.New(limit) // per second
@@ -106,11 +110,24 @@ func New(options *options2.Options) (*runner, error) {
 	go func() {
 		for _, msg := range r.domains {
 			r.sender <- msg
+			if options.Method == "enum" && options.Level > 2 {
+				r.iterDomains(options.Level, msg)
+			}
 		}
 		r.domains = nil
 		r.fisrtloadChanel <- "ok"
 	}()
 	return r, nil
+}
+func (r *runner) iterDomains(level int, domain string) {
+	if level == 2 {
+		return
+	}
+	for _, levelMsg := range r.options.LevelDomains {
+		tmpDomain := fmt.Sprintf("%s.%s", levelMsg, domain)
+		r.sender <- tmpDomain
+		r.iterDomains(level-1, tmpDomain)
+	}
 }
 func (r *runner) choseDns() string {
 	dns := r.options.Resolvers
@@ -144,7 +161,6 @@ func (r *runner) loadTargets() int {
 		// 读取字典
 		if options.FileName == "" {
 			subdomainDict := core.GetDefaultSubdomainData()
-			gologger.Infof("加载内置字典:%d\n", len(subdomainDict))
 			reader = bufio.NewReader(strings.NewReader(strings.Join(subdomainDict, "\n")))
 		} else {
 			subdomainDict, err := core.LinesInFile(options.FileName)
