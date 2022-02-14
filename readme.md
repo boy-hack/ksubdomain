@@ -1,4 +1,4 @@
-ksubdomain是一款基于无状态的子域名爆破工具，类似无状态端口扫描，支持在Windows/Linux/Mac上进行快速的DNS爆破，在Mac和Windows上理论最大发包速度在30w/s,linux上为160w/s。
+ksubdomain是一款基于无状态的子域名爆破工具，类似无状态端口扫描，支持在Windows/Linux/Mac上进行快速的DNS爆破，拥有重发机制不用担心漏包。
 
 hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdomain
 
@@ -96,7 +96,29 @@ OPTIONS:
 从stdin获取
 echo "baidu.com"|./ksubdomain e --stdin
 ```
+## 特性和Tips
+- 无状态爆破，有失败重发机制，速度极快
+- 中文帮助，-h会看到中文帮助
+- 两种模式，枚举模式和验证模式，枚举模式内置10w字典
+- 将网络参数简化为了-b参数，输入你的网络下载速度如-b 5m，将会自动限制网卡发包速度。
+- 可以使用./ksubdomain test来测试本地最大发包数
+- 获取网卡改为了全自动并可以根据配置文件读取。
+- 会有一个时时的进度条，依次显示成功/发送/队列/接收/失败/耗时 信息。
+- 不同规模的数据，调整 --retry --timeout参数即可获得最优效果
+- 当--retry为-1，将会一直重试直到所有成功。
+## 与massdns、dnsx对比
+使用100w字典，在4H5M的网络环境下测试
 
+|          | ksubdomain                                                   | massdns                                                      | dnsx                                                         |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 支持系统 | Windows/Linux/Darwin                                         | Windows/Linux/Darwin                                         | Windows/Linux/Darwin                                         |
+| 功能 | 支持验证和枚举 | 只能验证 | 只能验证 |
+| 发包方式 | pcap网卡发包                                                 | epoll,pcap,socket                                            | socket                                                       |
+| 命令行 | time ./ksubdomain v -b 5m -f d2.txt -o ksubdomain.txt -r dns.txt --retry 3 --np | time ./massdns -r dns.txt -t AAAA -w massdns.txt d2.txt --root -o L | time ./dnsx -a -o dnsx.txt -r dns.txt -l d2.txt -retry 3 -t 5000 |
+| 备注   | 加了--np 防止打印过多                                        |                                                              |                                                              |
+| 结果   | 耗时:1m28.273s<br />成功个数:1397                            | 耗时:3m29.337s<br />成功个数:1396                            | 耗时:5m26.780s <br />成功个数:1396                           |
+
+ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 
 ## 参考
 - 原ksubdomain https://github.com/knownsec/ksubdomain
