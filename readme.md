@@ -28,8 +28,10 @@ GLOBAL OPTIONS:
 ```
 
 ### 模式
+
 **验证模式**
-提供完整的域名列表，ksubdomain负责快速获取结果 
+提供完整的域名列表，ksubdomain负责快速获取结果
+
 ```bash
 ./ksubdomain verify -h
 
@@ -60,8 +62,10 @@ OPTIONS:
 从stdin读取
 echo "www.hacking8.com"|./ksubdomain v --stdin
 ```
+
 **枚举模式**
 只提供一级域名，指定域名字典或使用ksubdomain内置字典，枚举所有二级域名
+
 ```bash
 ./ksubdomain enum -h
 
@@ -96,7 +100,9 @@ OPTIONS:
 从stdin获取
 echo "baidu.com"|./ksubdomain e --stdin
 ```
+
 ## 特性和Tips
+
 - 无状态爆破，有失败重发机制，速度极快
 - 中文帮助，-h会看到中文帮助
 - 两种模式，枚举模式和验证模式，枚举模式内置10w字典
@@ -106,7 +112,9 @@ echo "baidu.com"|./ksubdomain e --stdin
 - 会有一个时时的进度条，依次显示成功/发送/队列/接收/失败/耗时 信息。
 - 不同规模的数据，调整 --retry --timeout参数即可获得最优效果
 - 当--retry为-1，将会一直重试直到所有成功。
+
 ## 与massdns、dnsx对比
+
 使用100w字典，在4H5M的网络环境下测试
 
 |          | ksubdomain                                                   | massdns                                                      | dnsx                                                         |
@@ -121,6 +129,7 @@ echo "baidu.com"|./ksubdomain e --stdin
 ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 
 ## 参考
+
 - 原ksubdomain https://github.com/knownsec/ksubdomain
 - 从 Masscan, Zmap 源码分析到开发实践 <https://paper.seebug.org/1052/>
 - ksubdomain 无状态域名爆破工具介绍 <https://paper.seebug.org/1325/>
