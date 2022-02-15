@@ -36,7 +36,7 @@ jobs:
         run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-static"
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
 
       - name: Build Windows
         run: go build -o ./ksubdomain_windows.exe ./cmd/
@@ -44,7 +44,6 @@ jobs:
         env:
           GOOS: windows
           GOENABLE: 1
-          CGO_LDFLAGS: "-static"
 
       - name: Upload a build artifact
         uses: actions/upload-artifact@v2
