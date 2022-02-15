@@ -24,7 +24,7 @@ jobs:
 
       - name: Set up Darwin libpcap
         if: matrix.os == 'macos-latest'
-        run: brew install libcap gcc
+        run: brew install libpcap
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
