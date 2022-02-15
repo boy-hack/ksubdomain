@@ -3,6 +3,16 @@ ksubdomain是一款基于无状态的子域名爆破工具，类似无状态端�
 hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdomain
 
 ![](image.gif)
+## 安装
+1. 下载二进制 https://github.com/boy-hack/ksubdomain/releases
+2. 安装libpcap环境
+   - Windows
+     下载`winpcap`驱动:https://www.winpcap.org/install/default.htm
+   - Linux
+     已经静态编译打包libpcap，无需其他操作
+   - MacOS
+     自带libpcap,无需其他操作
+3. 执行!
 
 ## Useage
 ```bash

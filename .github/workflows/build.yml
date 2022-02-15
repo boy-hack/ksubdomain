@@ -13,7 +13,6 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - windows-latest
           - macos-latest
     steps:
       - name: Set up Go 1.17
@@ -24,7 +23,7 @@ jobs:
 
       - name: Set up libpcap-dev
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libpcap-dev -y
+        run: sudo apt-get install libpcap-dev gcc -y
 
       - name: Get version
         id: get_version
@@ -36,17 +35,29 @@ jobs:
       - name: Get dependencies
         run: go mod download
 
-      - name: Build
+      - name: Build On Linux
         run: |
           go build -o ./ksubdomain ./cmd/
           chmod +x ksubdomain
-          tar -cvf Ksubdomain-${{ steps.get_version.outputs.VERSION }}-${{ runner.os }}.tar ksubdomain
-        if: matrix.os != 'windows-latest'
+          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux.tar ksubdomain
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GOENABLE: 1
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
+      - name: Build On Darwin
+        run: |
+          go build -o ./ksubdomain ./cmd/
+          chmod +x ksubdomain
+          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin.tar ksubdomain
+        if: matrix.os == 'macos-latest'
       - name: Build On Windows
         run: |
           go build -o ./ksubdomain.exe ./cmd/
-          tar -cvf Ksubdomain-${{ runner.os }}.tar ksubdomain.exe
-        if: matrix.os == 'windows-latest'
+          tar -cvf KSubdomain-windows.tar ksubdomain.exe
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GOOS: windows
+          GOENABLE: 1
       - name: Release
         uses: softprops/action-gh-release@master
         with:
