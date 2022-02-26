@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/boy-hack/ksubdomain/core/conf"
+	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/urfave/cli/v2"
-	"ksubdomain/core/conf"
-	"ksubdomain/core/gologger"
 	"os"
 )
 

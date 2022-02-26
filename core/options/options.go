@@ -1,8 +1,8 @@
 package options
 
 import (
-	"ksubdomain/core"
-	"ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/core"
+	"github.com/boy-hack/ksubdomain/core/gologger"
 	"os"
 	"strconv"
 )

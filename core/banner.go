@@ -1,8 +1,8 @@
 package core
 
 import (
-	"ksubdomain/core/conf"
-	"ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/core/conf"
+	"github.com/boy-hack/ksubdomain/core/gologger"
 )
 
 const banner = `

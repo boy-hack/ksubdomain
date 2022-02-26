@@ -2,12 +2,12 @@ package runner
 
 import (
 	"context"
+	"github.com/boy-hack/ksubdomain/core/device"
+	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/runner/statusdb"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"ksubdomain/core/device"
-	"ksubdomain/core/gologger"
-	"ksubdomain/runner/statusdb"
 	"net"
 	"sync/atomic"
 	"time"

@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"ksubdomain/core/options"
+	"github.com/boy-hack/ksubdomain/core/options"
 	"path/filepath"
 	"testing"
 )
