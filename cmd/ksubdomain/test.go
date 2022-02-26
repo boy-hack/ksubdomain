@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/boy-hack/ksubdomain/runner"
 	"github.com/urfave/cli/v2"
-	"ksubdomain/runner"
 )
 
 var testCommand = &cli.Command{

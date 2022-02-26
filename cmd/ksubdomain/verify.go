@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/core/options"
+	"github.com/boy-hack/ksubdomain/runner"
 	"github.com/urfave/cli/v2"
-	"ksubdomain/core/gologger"
-	"ksubdomain/core/options"
-	"ksubdomain/runner"
 )
 
 var commonFlags = []cli.Flag{
