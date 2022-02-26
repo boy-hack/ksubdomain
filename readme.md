@@ -13,6 +13,11 @@ hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdom
    - MacOS
      自带libpcap,无需其他操作
 3. 执行!
+### 快速安装
+需要`go 1.16`以上版本并安装`libpcap`环境，运行以下命令
+```
+go install -v github.com/boy-hack/ksubdomain/cmd/ksubdomain@latest
+```
 
 ## Useage
 ```bash
