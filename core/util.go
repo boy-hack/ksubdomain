@@ -5,6 +5,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -68,4 +69,12 @@ func IsContain(items []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func SliceToString(items []string) string {
+	ret := strings.Builder{}
+	ret.WriteString("[")
+	ret.WriteString(strings.Join(items, ","))
+	ret.WriteString("]")
+	return ret.String()
 }

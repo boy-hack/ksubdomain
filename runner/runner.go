@@ -74,7 +74,7 @@ func New(options *options2.Options) (*runner, error) {
 	r.ether = GetDeviceConfig()
 	r.hm = statusdb.CreateMemoryDB()
 
-	gologger.Infof("DNS:%s\n", options.Resolvers)
+	gologger.Infof("DNS:%s\n", core.SliceToString(options.Resolvers))
 	r.handle, err = device.PcapInit(r.ether.Device)
 	if err != nil {
 		return nil, err
@@ -188,7 +188,8 @@ func (r *runner) loadTargets() int {
 	}
 
 	if len(options.Domain) > 0 {
-		gologger.Infof("检测域名:%s\n", options.Domain)
+		p := core.SliceToString(options.Domain)
+		gologger.Infof("检测域名:%s\n", p)
 	}
 
 	for {
