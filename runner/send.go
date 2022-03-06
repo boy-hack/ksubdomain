@@ -72,7 +72,7 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	dns.Questions = append(dns.Questions,
 		layers.DNSQuestion{
 			Name:  []byte(domain),
-			Type:  layers.DNSTypeA,
+			Type:  layers.DNSTypeNS,
 			Class: layers.DNSClassIN,
 		})
 	// Our UDP header

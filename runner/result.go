@@ -3,41 +3,12 @@ package runner
 import (
 	"bufio"
 	"context"
-	"errors"
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/google/gopacket/layers"
 	"os"
 	"strings"
 )
 
-func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
-	if rr.Class == layers.DNSClassIN {
-		switch rr.Type {
-		case layers.DNSTypeA, layers.DNSTypeAAAA:
-			if rr.IP != nil {
-				return rr.IP.String(), nil
-			}
-		case layers.DNSTypeNS:
-			if rr.NS != nil {
-				return "NS " + string(rr.NS), nil
-			}
-		case layers.DNSTypeCNAME:
-			if rr.CNAME != nil {
-				return "CNAME " + string(rr.CNAME), nil
-			}
-		case layers.DNSTypePTR:
-			if rr.PTR != nil {
-				return "PTR " + string(rr.PTR), nil
-			}
-		case layers.DNSTypeTXT:
-			if rr.TXT != nil {
-				return "TXT " + string(rr.TXT), nil
-			}
-		}
-	}
-	return "", errors.New("dns record error")
-}
 func (r *runner) handleResult(ctx context.Context) {
 	var isWrite bool = false
 	var err error
@@ -62,20 +33,15 @@ func (r *runner) handleResult(ctx context.Context) {
 	onlyDomain := r.options.OnlyDomain
 	notPrint := r.options.NotPrint
 	for result := range r.recver {
-		var content []string
 		var msg string
-		content = append(content, result.Subdomain)
 
 		if onlyDomain {
 			msg = result.Subdomain
 		} else {
-			for _, v := range result.Answers {
-				answer, err := dnsRecord2String(v)
-				if err != nil {
-					continue
-				}
-				content = append(content, answer)
+			var content = []string{
+				result.Subdomain,
 			}
+			content = append(content, result.Answers...)
 			msg = strings.Join(content, " => ")
 		}
 

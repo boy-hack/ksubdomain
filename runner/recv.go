@@ -4,13 +4,45 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/boy-hack/ksubdomain/core"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"sync/atomic"
 	"time"
 )
+
+func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
+	if rr.Class == layers.DNSClassIN {
+		switch rr.Type {
+		case layers.DNSTypeA, layers.DNSTypeAAAA:
+			if rr.IP != nil {
+				return rr.IP.String(), nil
+			}
+		case layers.DNSTypeNS:
+			if rr.NS != nil {
+				return "NS " + string(rr.NS), nil
+			}
+		case layers.DNSTypeCNAME:
+			if rr.CNAME != nil {
+				return "CNAME " + string(rr.CNAME), nil
+			}
+		case layers.DNSTypePTR:
+			if rr.PTR != nil {
+				return "PTR " + string(rr.PTR), nil
+			}
+		case layers.DNSTypeTXT:
+			if rr.TXT != nil {
+				return "TXT " + string(rr.TXT), nil
+			}
+		}
+	}
+	return "", errors.New("dns record error")
+}
+
+type result struct {
+	Subdomain string
+	Answers   []string
+}
 
 func (r *runner) recvChanel(ctx context.Context) error {
 	var (
@@ -81,11 +113,18 @@ func (r *runner) recvChanel(ctx context.Context) error {
 		r.hm.Del(subdomain)
 		if dns.ANCount > 0 {
 			atomic.AddUint64(&r.successIndex, 1)
-			result := core.RecvResult{
-				Subdomain: subdomain,
-				Answers:   dns.Answers,
+			var answers []string
+			for _, v := range dns.Answers {
+				answer, err := dnsRecord2String(v)
+				if err != nil {
+					continue
+				}
+				answers = append(answers, answer)
 			}
-			r.recver <- result
+			r.recver <- result{
+				Subdomain: subdomain,
+				Answers:   answers,
+			}
 		}
 	}
 }

@@ -30,7 +30,7 @@ type runner struct {
 	recvIndex       uint64
 	faildIndex      uint64
 	sender          chan string
-	recver          chan core.RecvResult
+	recver          chan result
 	freeport        int
 	dnsid           uint16 // dnsid 用于接收的确定ID
 	maxRetry        int    // 最大重试次数
@@ -94,8 +94,8 @@ func New(options *options2.Options) (*runner, error) {
 
 	gologger.Infof("Rate:%dpps\n", limit)
 
-	r.sender = make(chan string, 99)          // 多个协程发送
-	r.recver = make(chan core.RecvResult, 99) // 多个协程接收
+	r.sender = make(chan string, 99) // 多个协程发送
+	r.recver = make(chan result, 99) // 多个协程接收
 
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
