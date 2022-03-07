@@ -28,7 +28,7 @@ USAGE:
    ksubdomain [global options] command [command options] [arguments...]
 
 VERSION:
-   1.4
+   1.8.6
 
 COMMANDS:
    enum, e    枚举域名
@@ -51,10 +51,10 @@ GLOBAL OPTIONS:
 ./ksubdomain verify -h
 
 NAME:
-   cmd verify - 验证模式
+   ksubdomain verify - 验证模式
 
 USAGE:
-   cmd verify [command options] [arguments...]
+   ksubdomain verify [command options] [arguments...]
 
 OPTIONS:
    --filename value, -f value   验证域名文件路径
@@ -67,6 +67,7 @@ OPTIONS:
    --stdin                      接受stdin输入 (default: false)
    --only-domain, --od          只打印域名，不显示ip (default: false)
    --not-print, --np            不打印域名结果 (default: false)
+   --dns-type value             dns类型 1为a记录 2为ns记录 5为cname记录 16为txt (default: 1)
    --help, -h                   show help (default: false)
 ```
 
@@ -76,6 +77,9 @@ OPTIONS:
 
 从stdin读取
 echo "www.hacking8.com"|./ksubdomain v --stdin
+
+读取ns记录
+echo "hacking8.com" | ./ksubdomain v --stdin --dns-type 2
 ```
 
 **枚举模式**
@@ -85,10 +89,10 @@ echo "www.hacking8.com"|./ksubdomain v --stdin
 ./ksubdomain enum -h
 
 NAME:
-   cmd enum - 枚举域名
+   ksubdomain enum - 枚举域名
 
 USAGE:
-   cmd enum [command options] [arguments...]
+   ksubdomain enum [command options] [arguments...]
 
 OPTIONS:
    --band value, -b value          宽带的下行速度，可以5M,5K,5G (default: "2m")
@@ -100,6 +104,7 @@ OPTIONS:
    --stdin                         接受stdin输入 (default: false)
    --only-domain, --od             只打印域名，不显示ip (default: false)
    --not-print, --np               不打印域名结果 (default: false)
+   --dns-type value                dns类型 1为a记录 2为ns记录 5为cname记录 16为txt (default: 1)
    --domain value, -d value        爆破的域名
    --domainList value, --dl value  从文件中指定域名
    --filename value, -f value      字典路径
@@ -127,6 +132,7 @@ echo "baidu.com"|./ksubdomain e --stdin
 - 会有一个时时的进度条，依次显示成功/发送/队列/接收/失败/耗时 信息。
 - 不同规模的数据，调整 --retry --timeout参数即可获得最优效果
 - 当--retry为-1，将会一直重试直到所有成功。
+- 支持爆破ns记录
 
 ## 与massdns、dnsx对比
 
