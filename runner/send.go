@@ -32,11 +32,11 @@ func (r *runner) sendCycle(ctx context.Context) {
 			v.Dns = r.choseDns()
 			r.hm.Set(domain, v)
 		}
-		send(domain, v.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle)
+		send(domain, v.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle, r.options.DnsType)
 		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }
-func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle) {
+func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType int) {
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
 		SrcMAC:       ether.SrcMac.HardwareAddr(),
@@ -72,7 +72,7 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	dns.Questions = append(dns.Questions,
 		layers.DNSQuestion{
 			Name:  []byte(domain),
-			Type:  layers.DNSTypeNS,
+			Type:  layers.DNSType(dnsType),
 			Class: layers.DNSClassIN,
 		})
 	// Our UDP header

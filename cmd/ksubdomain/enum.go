@@ -96,6 +96,7 @@ var enumCommand = &cli.Command{
 			NotPrint:     c.Bool("not-print"),
 			Level:        c.Int("level"),
 			LevelDomains: levelDomains,
+			DnsType:      c.Int("dns-type"),
 		}
 		opt.Check()
 

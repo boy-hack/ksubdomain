@@ -23,6 +23,7 @@ type Options struct {
 	NotPrint     bool
 	Level        int
 	LevelDomains []string
+	DnsType      int
 }
 
 func Band2Rate(bandWith string) int64 {

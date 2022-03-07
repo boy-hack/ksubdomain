@@ -61,6 +61,11 @@ var commonFlags = []cli.Flag{
 		Usage:   "不打印域名结果",
 		Value:   false,
 	},
+	&cli.IntFlag{
+		Name:  "dns-type",
+		Usage: "dns类型 1为a记录 2为ns记录 5为cname记录 16为txt",
+		Value: 1,
+	},
 }
 
 var verifyCommand = &cli.Command{
@@ -94,6 +99,7 @@ var verifyCommand = &cli.Command{
 			Method:       "verify",
 			OnlyDomain:   c.Bool("only-domain"),
 			NotPrint:     c.Bool("not-print"),
+			DnsType:      c.Int("dns-type"),
 		}
 		opt.Check()
 

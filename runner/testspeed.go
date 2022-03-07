@@ -27,7 +27,7 @@ func TestSpeed(ether *device.EtherTable) {
 	}
 	var now int64
 	for {
-		send("www.hacking8.com", "1.1.1.2", ether, dnsid, uint16(tmpFreeport), handle)
+		send("www.hacking8.com", "1.1.1.2", ether, dnsid, uint16(tmpFreeport), handle, 1)
 		index++
 		now = time.Now().UnixNano() / 1e6
 		tickTime := (now - start) / 1000
