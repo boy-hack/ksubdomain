@@ -69,7 +69,7 @@ var commonFlags = []cli.Flag{
 }
 
 var verifyCommand = &cli.Command{
-	Name:    "verify",
+	Name:    runner.VerifyType,
 	Aliases: []string{"v"},
 	Usage:   "验证模式",
 	Flags: append([]cli.Flag{

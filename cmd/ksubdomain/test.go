@@ -6,7 +6,7 @@ import (
 )
 
 var testCommand = &cli.Command{
-	Name:  "test",
+	Name:  runner.TestType,
 	Usage: "测试本地网卡的最大发送速度",
 	Action: func(c *cli.Context) error {
 		ether := runner.GetDeviceConfig()

@@ -2,29 +2,26 @@ package runner
 
 import (
 	"context"
-	"strings"
 )
 
 func (r *runner) handleResult(ctx context.Context) {
 
-	onlyDomain := r.options.OnlyDomain
+	//onlyDomain := r.options.OnlyDomain
 	//notPrint := r.options.NotPrint
 	for result := range r.recver {
-		var msg string
-
-		if onlyDomain {
-			msg = result.Subdomain
-		} else {
-			var content = []string{
-				result.Subdomain,
-			}
-			content = append(content, result.Answers...)
-			msg = strings.Join(content, " => ")
-		}
-
 		for _, out := range r.options.Writer {
-			out.Write([]byte(msg))
+			_ = out.WriteDomainResult(result)
 		}
+
+		//if onlyDomain {
+		//	msg = result.Subdomain
+		//} else {
+		//	var content = []string{
+		//		result.Subdomain,
+		//	}
+		//	content = append(content, result.Answers...)
+		//	msg = strings.Join(content, " => ")
+		//}
 
 		//if !notPrint {
 		//	if !r.options.Silent {

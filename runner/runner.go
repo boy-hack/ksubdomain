@@ -22,6 +22,7 @@ import (
 const (
 	VerifyType = "verify"
 	EnumType   = "enum"
+	TestType   = "test"
 )
 
 type runner struct {

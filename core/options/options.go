@@ -4,17 +4,17 @@ import (
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/runner"
-	"io"
+	"github.com/boy-hack/ksubdomain/runner/outputter"
 	"os"
 	"strconv"
 )
 
 type Options struct {
-	Rate         int64
-	Domain       []string
-	FileName     string // 字典文件名
-	Resolvers    []string
-	Output       string // 输出文件名
+	Rate         int64    // 每秒发包
+	Domain       []string // 域名
+	FileName     string   // 字典文件名
+	Resolvers    []string // dns resolvers
+	Output       string   // 输出文件名
 	Silent       bool
 	Stdin        bool
 	SkipWildCard bool
@@ -26,7 +26,7 @@ type Options struct {
 	Level        int
 	LevelDomains []string
 	DnsType      int
-	Writer       []io.Writer
+	Writer       []outputter.Output
 }
 
 func Band2Rate(bandWith string) int64 {

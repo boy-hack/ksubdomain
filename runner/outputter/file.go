@@ -1,7 +1,9 @@
 package outputter
 
 import (
+	"github.com/boy-hack/ksubdomain/runner"
 	"os"
+	"strings"
 )
 
 type FileOutPut struct {
@@ -17,8 +19,14 @@ func NewFileOutput(filename string) (*FileOutPut, error) {
 	f.output = output
 	return f, err
 }
-func (f *FileOutPut) Write(b []byte) (n int, err error) {
-	return f.output.Write(b)
+func (f *FileOutPut) WriteDomainResult(domain runner.Result) error {
+	var domains []string = []string{domain.Subdomain}
+	for _, item := range domain.Answers {
+		domains = append(domains, item)
+	}
+	msg := strings.Join(domains, "=>")
+	_, err := f.output.WriteString(msg + "\n")
+	return err
 }
 func (f *FileOutPut) Close() error {
 	return f.output.Close()

@@ -9,7 +9,7 @@ import (
 )
 
 var enumCommand = &cli.Command{
-	Name:    "enum",
+	Name:    runner.EnumType,
 	Aliases: []string{"e"},
 	Usage:   "枚举域名",
 	Flags: append(commonFlags, []cli.Flag{

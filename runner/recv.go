@@ -39,7 +39,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	return "", errors.New("dns record error")
 }
 
-type result struct {
+type Result struct {
 	Subdomain string
 	Answers   []string
 }
@@ -121,7 +121,7 @@ func (r *runner) recvChanel(ctx context.Context) error {
 				}
 				answers = append(answers, answer)
 			}
-			r.recver <- result{
+			r.recver <- Result{
 				Subdomain: subdomain,
 				Answers:   answers,
 			}
