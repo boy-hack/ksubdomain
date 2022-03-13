@@ -91,7 +91,7 @@ var enumCommand = &cli.Command{
 			SkipWildCard: c.Bool("skip-wild"),
 			TimeOut:      c.Int("timeout"),
 			Retry:        c.Int("retry"),
-			Method:       "enum",
+			Method:       runner.EnumType,
 			OnlyDomain:   c.Bool("only-domain"),
 			NotPrint:     c.Bool("not-print"),
 			Level:        c.Int("level"),

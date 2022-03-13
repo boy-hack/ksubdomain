@@ -3,6 +3,8 @@ package options
 import (
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/runner"
+	"io"
 	"os"
 	"strconv"
 )
@@ -24,6 +26,7 @@ type Options struct {
 	Level        int
 	LevelDomains []string
 	DnsType      int
+	Writer       []io.Writer
 }
 
 func Band2Rate(bandWith string) int64 {
@@ -82,15 +85,17 @@ func (opt *Options) Check() {
 
 	core.ShowBanner()
 
-	if opt.Method == "verify" {
+	if opt.Method == runner.VerifyType {
 		if opt.Stdin {
 
 		} else {
-			if opt.FileName == "" || !core.FileExists(opt.FileName) {
-				gologger.Fatalf("域名验证文件:%s 不存在! \n", opt.FileName)
+			if opt.Domain == nil {
+				if opt.FileName == "" || !core.FileExists(opt.FileName) {
+					gologger.Fatalf("域名验证文件:%s 不存在! \n", opt.FileName)
+				}
 			}
 		}
-	} else if opt.Method == "enum" {
+	} else if opt.Method == runner.EnumType {
 		if opt.FileName != "" && !core.FileExists(opt.FileName) {
 			gologger.Fatalf("字典文件:%s 不存在! \n", opt.FileName)
 		}

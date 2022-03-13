@@ -19,6 +19,11 @@ import (
 	"time"
 )
 
+const (
+	VerifyType = "verify"
+	EnumType   = "enum"
+)
+
 type runner struct {
 	ether           *device.EtherTable //本地网卡信息
 	hm              *statusdb.StatusDb
@@ -141,7 +146,7 @@ func (r *runner) loadTargets() int {
 	// get targets
 	var reader *bufio.Reader
 	options := r.options
-	if options.Method == "verify" {
+	if options.Method == VerifyType {
 		if options.Stdin {
 			reader = bufio.NewReader(os.Stdin)
 
@@ -153,7 +158,7 @@ func (r *runner) loadTargets() int {
 			defer f2.Close()
 			reader = bufio.NewReader(f2)
 		}
-	} else if options.Method == "enum" {
+	} else if options.Method == EnumType {
 		if options.Stdin {
 			scanner := bufio.NewScanner(os.Stdin)
 			scanner.Split(bufio.ScanLines)
@@ -198,7 +203,7 @@ func (r *runner) loadTargets() int {
 			break
 		}
 		msg := string(line)
-		if r.options.Method == "verify" {
+		if r.options.Method == VerifyType {
 			// send msg
 			r.domains = append(r.domains, msg)
 		} else {

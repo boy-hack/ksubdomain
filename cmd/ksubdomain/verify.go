@@ -85,9 +85,13 @@ var verifyCommand = &cli.Command{
 		if c.NumFlags() == 0 {
 			cli.ShowCommandHelpAndExit(c, "verify", 0)
 		}
+		var domains []string
+		if c.String("domain") != "" {
+			domains = append(domains, c.String("domain"))
+		}
 		opt := &options.Options{
 			Rate:         options.Band2Rate(c.String("band")),
-			Domain:       nil,
+			Domain:       domains,
 			FileName:     c.String("filename"),
 			Resolvers:    options.GetResolvers(c.String("resolvers")),
 			Output:       c.String("output"),
@@ -96,7 +100,7 @@ var verifyCommand = &cli.Command{
 			SkipWildCard: false,
 			TimeOut:      c.Int("timeout"),
 			Retry:        c.Int("retry"),
-			Method:       "verify",
+			Method:       runner.VerifyType,
 			OnlyDomain:   c.Bool("only-domain"),
 			NotPrint:     c.Bool("not-print"),
 			DnsType:      c.Int("dns-type"),
