@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/boy-hack/ksubdomain/runner/result"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -39,18 +40,13 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	return "", errors.New("dns record error")
 }
 
-type Result struct {
-	Subdomain string
-	Answers   []string
-}
-
 func (r *runner) recvChanel(ctx context.Context) error {
 	var (
 		snapshotLen = 65536
 		timeout     = -1 * time.Second
 		err         error
 	)
-	inactive, err := pcap.NewInactiveHandle(r.ether.Device)
+	inactive, err := pcap.NewInactiveHandle(r.options.EtherInfo.Device)
 	if err != nil {
 		return err
 	}
@@ -91,39 +87,44 @@ func (r *runner) recvChanel(ctx context.Context) error {
 	var data []byte
 	var decoded []gopacket.LayerType
 	for {
-		data, _, err = handle.ReadPacketData()
-		if err != nil {
-			continue
-		}
-		err = parser.DecodeLayers(data, &decoded)
-		if err != nil {
-			continue
-		}
-		if !dns.QR {
-			continue
-		}
-		if dns.ID != r.dnsid {
-			continue
-		}
-		atomic.AddUint64(&r.recvIndex, 1)
-		if len(dns.Questions) == 0 {
-			continue
-		}
-		subdomain := string(dns.Questions[0].Name)
-		r.hm.Del(subdomain)
-		if dns.ANCount > 0 {
-			atomic.AddUint64(&r.successIndex, 1)
-			var answers []string
-			for _, v := range dns.Answers {
-				answer, err := dnsRecord2String(v)
-				if err != nil {
-					continue
-				}
-				answers = append(answers, answer)
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			data, _, err = handle.ReadPacketData()
+			if err != nil {
+				continue
 			}
-			r.recver <- Result{
-				Subdomain: subdomain,
-				Answers:   answers,
+			err = parser.DecodeLayers(data, &decoded)
+			if err != nil {
+				continue
+			}
+			if !dns.QR {
+				continue
+			}
+			if dns.ID != r.dnsid {
+				continue
+			}
+			atomic.AddUint64(&r.recvIndex, 1)
+			if len(dns.Questions) == 0 {
+				continue
+			}
+			subdomain := string(dns.Questions[0].Name)
+			r.hm.Del(subdomain)
+			if dns.ANCount > 0 {
+				atomic.AddUint64(&r.successIndex, 1)
+				var answers []string
+				for _, v := range dns.Answers {
+					answer, err := dnsRecord2String(v)
+					if err != nil {
+						continue
+					}
+					answers = append(answers, answer)
+				}
+				r.recver <- result.Result{
+					Subdomain: subdomain,
+					Answers:   answers,
+				}
 			}
 		}
 	}

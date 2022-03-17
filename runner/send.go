@@ -14,29 +14,34 @@ import (
 )
 
 func (r *runner) sendCycle(ctx context.Context) {
-	for domain := range r.sender {
-		r.limit.Take()
-		v, ok := r.hm.Get(domain)
-		if !ok {
-			v = statusdb.Item{
-				Domain:      domain,
-				Dns:         r.choseDns(),
-				Time:        time.Now(),
-				Retry:       0,
-				DomainLevel: 0,
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case domain := <-r.sender:
+			r.limit.Take()
+			v, ok := r.hm.Get(domain)
+			if !ok {
+				v = statusdb.Item{
+					Domain:      domain,
+					Dns:         r.choseDns(),
+					Time:        time.Now(),
+					Retry:       0,
+					DomainLevel: 0,
+				}
+				r.hm.Add(domain, v)
+			} else {
+				v.Retry += 1
+				v.Time = time.Now()
+				v.Dns = r.choseDns()
+				r.hm.Set(domain, v)
 			}
-			r.hm.Add(domain, v)
-		} else {
-			v.Retry += 1
-			v.Time = time.Now()
-			v.Dns = r.choseDns()
-			r.hm.Set(domain, v)
+			send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, r.dnsType)
+			atomic.AddUint64(&r.sendIndex, 1)
 		}
-		send(domain, v.Dns, r.ether, r.dnsid, uint16(r.freeport), r.handle, r.options.DnsType)
-		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }
-func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType int) {
+func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
 		SrcMAC:       ether.SrcMac.HardwareAddr(),
@@ -72,7 +77,7 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	dns.Questions = append(dns.Questions,
 		layers.DNSQuestion{
 			Name:  []byte(domain),
-			Type:  layers.DNSType(dnsType),
+			Type:  dnsType,
 			Class: layers.DNSClassIN,
 		})
 	// Our UDP header

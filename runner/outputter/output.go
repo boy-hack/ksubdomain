@@ -1,8 +1,10 @@
 package outputter
 
-import "github.com/boy-hack/ksubdomain/runner"
+import (
+	"github.com/boy-hack/ksubdomain/runner/result"
+)
 
 type Output interface {
-	WriteDomainResult(domain runner.Result) error
+	WriteDomainResult(domain result.Result) error
 	Close()
 }

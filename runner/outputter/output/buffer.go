@@ -1,7 +1,7 @@
-package outputter
+package output
 
 import (
-	"github.com/boy-hack/ksubdomain/runner"
+	"github.com/boy-hack/ksubdomain/runner/result"
 	"strings"
 )
 
@@ -15,7 +15,7 @@ func NewBuffOutput() (*BuffOutput, error) {
 	return s, nil
 }
 
-func (b *BuffOutput) WriteDomainResult(domain runner.Result) error {
+func (b *BuffOutput) WriteDomainResult(domain result.Result) error {
 	var domains []string = []string{domain.Subdomain}
 	for _, item := range domain.Answers {
 		domains = append(domains, item)

@@ -1,7 +1,7 @@
-package outputter
+package output
 
 import (
-	"github.com/boy-hack/ksubdomain/runner"
+	"github.com/boy-hack/ksubdomain/runner/result"
 	"os"
 	"strings"
 )
@@ -19,7 +19,7 @@ func NewFileOutput(filename string) (*FileOutPut, error) {
 	f.output = output
 	return f, err
 }
-func (f *FileOutPut) WriteDomainResult(domain runner.Result) error {
+func (f *FileOutPut) WriteDomainResult(domain result.Result) error {
 	var domains []string = []string{domain.Subdomain}
 	for _, item := range domain.Answers {
 		domains = append(domains, item)
@@ -28,6 +28,6 @@ func (f *FileOutPut) WriteDomainResult(domain runner.Result) error {
 	_, err := f.output.WriteString(msg + "\n")
 	return err
 }
-func (f *FileOutPut) Close() error {
-	return f.output.Close()
+func (f *FileOutPut) Close() {
+	f.output.Close()
 }
