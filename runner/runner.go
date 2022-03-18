@@ -112,6 +112,7 @@ func (r *runner) printStatus() {
 }
 func (r *runner) RunEnumeration(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
 		scanner := bufio.NewScanner(r.options.Domain)
 		scanner.Split(bufio.ScanLines)
@@ -135,7 +136,6 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 				if r.hm.Length() == 0 {
 					gologger.Printf("\n")
 					gologger.Infof("扫描完毕")
-					cancel()
 					return
 				}
 			}
