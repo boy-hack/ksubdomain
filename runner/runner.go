@@ -123,8 +123,8 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 		r.fisrtloadChanel <- "ok"
 	}()
 	go r.recvChanel(ctx)        // 启动接收线程
-	go r.sendCycle(ctx)         // 发送线程
-	go r.handleResult(ctx)      // 处理结果，打印输出
+	go r.sendCycle()            // 发送线程
+	go r.handleResult()         // 处理结果，打印输出
 	var isLoadOver bool = false // 是否加载文件完毕
 	t := time.NewTicker(1 * time.Second)
 	defer t.Stop()
@@ -143,7 +143,6 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 			go r.retry(ctx) // 遍历hm，依次重试
 			isLoadOver = true
 		case <-ctx.Done():
-			gologger.Infof("外界控制关闭")
 			return
 		}
 	}

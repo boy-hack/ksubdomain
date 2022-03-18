@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"context"
 	"github.com/boy-hack/ksubdomain/core/device"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/runner/statusdb"
@@ -13,32 +12,27 @@ import (
 	"time"
 )
 
-func (r *runner) sendCycle(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case domain := <-r.sender:
-			r.limit.Take()
-			v, ok := r.hm.Get(domain)
-			if !ok {
-				v = statusdb.Item{
-					Domain:      domain,
-					Dns:         r.choseDns(),
-					Time:        time.Now(),
-					Retry:       0,
-					DomainLevel: 0,
-				}
-				r.hm.Add(domain, v)
-			} else {
-				v.Retry += 1
-				v.Time = time.Now()
-				v.Dns = r.choseDns()
-				r.hm.Set(domain, v)
+func (r *runner) sendCycle() {
+	for domain := range r.sender {
+		r.limit.Take()
+		v, ok := r.hm.Get(domain)
+		if !ok {
+			v = statusdb.Item{
+				Domain:      domain,
+				Dns:         r.choseDns(),
+				Time:        time.Now(),
+				Retry:       0,
+				DomainLevel: 0,
 			}
-			send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, r.dnsType)
-			atomic.AddUint64(&r.sendIndex, 1)
+			r.hm.Add(domain, v)
+		} else {
+			v.Retry += 1
+			v.Time = time.Now()
+			v.Dns = r.choseDns()
+			r.hm.Set(domain, v)
 		}
+		send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, r.dnsType)
+		atomic.AddUint64(&r.sendIndex, 1)
 	}
 }
 func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
