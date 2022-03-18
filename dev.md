@@ -1,4 +1,5 @@
 一个简单的调用例子
+注意: 不要启动多个ksubdomain，ksubdomain启动一个就可以发挥最大作用。
 
 ```go
 package main
@@ -16,7 +17,7 @@ import (
 
 func main() {
 	process := processbar.ScreenProcess{}
-	screenPrinter, _ := output.NewScreenOutput()
+	screenPrinter, _ := output.NewScreenOutput(false)
 
 	domains := []string{"www.hacking8.com", "x.hacking8.com"}
 	opt := &options.Options{
@@ -45,7 +46,8 @@ func main() {
 	r.Close()
 }
 ```
-需要填写`options`参数
+可以看到调用很简单，就是填写`options`参数，然后调用runner启动就好了，重要的是options填什么。
+options的参数结构
 ```go
 type Options struct {
 	Rate        int64              // 每秒发包速率
@@ -62,3 +64,8 @@ type Options struct {
 	EtherInfo   *device.EtherTable // 网卡信息
 }
 ```
+1. ksubdomain底层接口只是一个dns验证器，如果要通过一级域名枚举，需要把全部的域名都放入`Domain`字段中，可以看enum参数是怎么写的 `cmd/ksubdomain/enum.go`
+2. Write参数是一个outputter.Output接口，用途是如何处理DNS返回的接口，ksubdomain已经内置了三种接口在 `runner/outputter/output`中，主要作用是把数据存入内存、数据写入文件、数据打印到屏幕，可以自己实现这个接口，实现自定义的操作。
+3. ProcessBar参数是一个processbar.ProcessBar接口，主要用途是将程序内`成功个数`、`发送个数`、`队列数`、`接收数`、`失败数`、`耗时`传递给用户，实现这个参数可以时时获取这些。
+4. EtherInfo是*device.EtherTable类型，用来获取网卡的信息，一般用函数`options.GetDeviceConfig()`即可自动获取网卡配置。
+
