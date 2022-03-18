@@ -61,8 +61,8 @@ func New(opt *options.Options) (*runner, error) {
 	// 根据发包总数和timeout时间来分配每秒速度
 	allPacket := opt.DomainTotal
 	calcLimit := float64(allPacket/opt.TimeOut) * 0.85
-	if calcLimit < 1000 {
-		calcLimit = 1000
+	if calcLimit < 5000 {
+		calcLimit = 5000
 	}
 	limit := int(math.Min(calcLimit, float64(opt.Rate)))
 	r.limit = ratelimit.New(limit) // per second
@@ -113,6 +113,9 @@ func (r *runner) printStatus() {
 func (r *runner) RunEnumeration(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	go r.recvChanel(ctx) // 启动接收线程
+	go r.sendCycle()     // 发送线程
+	go r.handleResult()  // 处理结果，打印输出
 	go func() {
 		scanner := bufio.NewScanner(r.options.Domain)
 		scanner.Split(bufio.ScanLines)
@@ -122,9 +125,6 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 		}
 		r.fisrtloadChanel <- "ok"
 	}()
-	go r.recvChanel(ctx)        // 启动接收线程
-	go r.sendCycle()            // 发送线程
-	go r.handleResult()         // 处理结果，打印输出
 	var isLoadOver bool = false // 是否加载文件完毕
 	t := time.NewTicker(1 * time.Second)
 	defer t.Stop()

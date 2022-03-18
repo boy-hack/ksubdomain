@@ -61,6 +61,7 @@ var enumCommand = &cli.Command{
 		var writer []outputter.Output
 		var processBar processbar.ProcessBar = &processbar.ScreenProcess{}
 		var err error
+		var domainTotal int = 0
 
 		// handle domain
 		if c.String("domain") != "" {
@@ -118,10 +119,12 @@ var enumCommand = &cli.Command{
 			for _, domain := range domains {
 				dd := sub + "." + domain
 				reader.WriteString(dd + "\n")
+				domainTotal++
 
 				if len(levelDomains) > 0 {
 					for _, sub2 := range levelDomains {
 						reader.WriteString(sub2 + "." + dd + "\n")
+						domainTotal++
 					}
 				}
 			}
@@ -147,7 +150,7 @@ var enumCommand = &cli.Command{
 		opt := &options.Options{
 			Rate:        options.Band2Rate(c.String("band")),
 			Domain:      strings.NewReader(reader.String()),
-			DomainTotal: len(domains),
+			DomainTotal: domainTotal,
 			Resolvers:   options.GetResolvers(c.String("resolvers")),
 			Silent:      c.Bool("silent"),
 			TimeOut:     c.Int("timeout"),
