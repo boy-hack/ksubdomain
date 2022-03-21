@@ -14,18 +14,19 @@ import (
 )
 
 type Options struct {
-	Rate        int64              // 每秒发包速率
-	Domain      io.Reader          // 域名输入
-	DomainTotal int                // 扫描域名总数
-	Resolvers   []string           // dns resolvers
-	Silent      bool               // 安静模式
-	TimeOut     int                // 超时时间 单位(秒)
-	Retry       int                // 最大重试次数
-	Method      string             // verify模式 enum模式 test模式
-	DnsType     string             // dns类型 a ns aaaa
-	Writer      []outputter.Output // 输出结构
-	ProcessBar  processbar.ProcessBar
-	EtherInfo   *device.EtherTable // 网卡信息
+	Rate             int64              // 每秒发包速率
+	Domain           io.Reader          // 域名输入
+	DomainTotal      int                // 扫描域名总数
+	Resolvers        []string           // dns resolvers
+	Silent           bool               // 安静模式
+	TimeOut          int                // 超时时间 单位(秒)
+	Retry            int                // 最大重试次数
+	Method           string             // verify模式 enum模式 test模式
+	DnsType          string             // dns类型 a ns aaaa
+	Writer           []outputter.Output // 输出结构
+	ProcessBar       processbar.ProcessBar
+	EtherInfo        *device.EtherTable  // 网卡信息
+	SpecialResolvers map[string][]string // 可针对特定域名使用的dns resolvers
 }
 
 func Band2Rate(bandWith string) int64 {

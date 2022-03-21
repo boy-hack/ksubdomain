@@ -16,6 +16,7 @@ import (
 	"go.uber.org/ratelimit"
 	"math"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,9 @@ type runner struct {
 	dnsType         layers.DNSType
 }
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
 func New(opt *options.Options) (*runner, error) {
 	var err error
 	version := pcap.Version()
@@ -90,9 +94,20 @@ func New(opt *options.Options) (*runner, error) {
 	return r, nil
 }
 
-func (r *runner) choseDns() string {
+func (r *runner) choseDns(domain string) string {
 	dns := r.options.Resolvers
-	return dns[rand.Intn(len(dns))]
+	specialDns := r.options.SpecialResolvers
+	var selectDns string
+	if specialDns != nil && len(specialDns) > 0 {
+		for k, v := range specialDns {
+			if strings.HasSuffix(domain, k) {
+				dns = v
+				break
+			}
+		}
+	}
+	selectDns = dns[rand.Intn(len(dns))]
+	return selectDns
 }
 
 func (r *runner) printStatus() {

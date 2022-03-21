@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"github.com/boy-hack/ksubdomain/core"
+	"github.com/boy-hack/ksubdomain/core/dns"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
 	"github.com/boy-hack/ksubdomain/runner"
@@ -11,6 +12,7 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/outputter/output"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -92,6 +94,7 @@ var enumCommand = &cli.Command{
 				}
 			}
 		}
+
 		var subdomainDict []string
 		if c.String("filename") == "" {
 			subdomainDict = core.GetDefaultSubdomainData()
@@ -130,6 +133,19 @@ var enumCommand = &cli.Command{
 			}
 		}
 
+		// 取域名的dns,加入到resolver中
+		specialDns := make(map[string][]string)
+		defaultResolver := options.GetResolvers(c.String("resolvers"))
+		if domainTotal > 80000 {
+			for _, domain := range domains {
+				_, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
+				if err != nil {
+					continue
+				}
+				specialDns[domain] = ips
+			}
+		}
+
 		if c.String("output") != "" {
 			fileWriter, err := output.NewFileOutput(c.String("output"))
 			if err != nil {
@@ -148,17 +164,18 @@ var enumCommand = &cli.Command{
 		writer = append(writer, screenWriter)
 
 		opt := &options.Options{
-			Rate:        options.Band2Rate(c.String("band")),
-			Domain:      strings.NewReader(reader.String()),
-			DomainTotal: domainTotal,
-			Resolvers:   options.GetResolvers(c.String("resolvers")),
-			Silent:      c.Bool("silent"),
-			TimeOut:     c.Int("timeout"),
-			Retry:       c.Int("retry"),
-			Method:      runner.VerifyType,
-			DnsType:     c.String("dns-type"),
-			Writer:      writer,
-			ProcessBar:  processBar,
+			Rate:             options.Band2Rate(c.String("band")),
+			Domain:           strings.NewReader(reader.String()),
+			DomainTotal:      domainTotal,
+			Resolvers:        defaultResolver,
+			Silent:           c.Bool("silent"),
+			TimeOut:          c.Int("timeout"),
+			Retry:            c.Int("retry"),
+			Method:           runner.VerifyType,
+			DnsType:          c.String("dns-type"),
+			Writer:           writer,
+			ProcessBar:       processBar,
+			SpecialResolvers: specialDns,
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig()

@@ -19,7 +19,7 @@ func (r *runner) sendCycle() {
 		if !ok {
 			v = statusdb.Item{
 				Domain:      domain,
-				Dns:         r.choseDns(),
+				Dns:         r.choseDns(domain),
 				Time:        time.Now(),
 				Retry:       0,
 				DomainLevel: 0,
@@ -28,7 +28,7 @@ func (r *runner) sendCycle() {
 		} else {
 			v.Retry += 1
 			v.Time = time.Now()
-			v.Dns = r.choseDns()
+			v.Dns = r.choseDns(domain)
 			r.hm.Set(domain, v)
 		}
 		send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, r.dnsType)
