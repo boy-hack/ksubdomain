@@ -66,7 +66,7 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	dns := &layers.DNS{
 		ID:      dnsid,
 		QDCount: 1,
-		//RD:      true, //递归查询标识
+		RD:      true, //递归查询标识
 	}
 	dns.Questions = append(dns.Questions,
 		layers.DNSQuestion{

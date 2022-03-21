@@ -42,6 +42,11 @@ var enumCommand = &cli.Command{
 			Usage: "跳过泛解析域名",
 			Value: false,
 		},
+		&cli.BoolFlag{
+			Name:  "ns",
+			Usage: "读取域名ns记录并加入到ns解析器中",
+			Value: false,
+		},
 		&cli.IntFlag{
 			Name:    "level",
 			Aliases: []string{"l"},
@@ -136,7 +141,7 @@ var enumCommand = &cli.Command{
 		// 取域名的dns,加入到resolver中
 		specialDns := make(map[string][]string)
 		defaultResolver := options.GetResolvers(c.String("resolvers"))
-		if domainTotal > 80000 {
+		if c.Bool("ns") {
 			for _, domain := range domains {
 				nsServers, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
 				if err != nil {
@@ -145,6 +150,7 @@ var enumCommand = &cli.Command{
 				specialDns[domain] = ips
 				gologger.Infof("%s ns:%v", domain, nsServers)
 			}
+
 		}
 
 		if c.String("output") != "" {
