@@ -138,11 +138,12 @@ var enumCommand = &cli.Command{
 		defaultResolver := options.GetResolvers(c.String("resolvers"))
 		if domainTotal > 80000 {
 			for _, domain := range domains {
-				_, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
+				nsServers, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
 				if err != nil {
 					continue
 				}
 				specialDns[domain] = ips
+				gologger.Infof("%s ns:%v", domain, nsServers)
 			}
 		}
 
