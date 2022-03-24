@@ -148,7 +148,7 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 		case <-t.C:
 			r.printStatus()
 			if isLoadOver {
-				if r.hm.Length() == 0 {
+				if r.hm.Length() <= 0 {
 					gologger.Printf("\n")
 					gologger.Infof("扫描完毕")
 					return
