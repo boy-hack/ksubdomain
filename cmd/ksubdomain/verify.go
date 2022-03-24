@@ -1,13 +1,27 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
 	"github.com/boy-hack/ksubdomain/runner"
+	"github.com/boy-hack/ksubdomain/runner/outputter"
+	"github.com/boy-hack/ksubdomain/runner/outputter/output"
+	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
+	"os"
+	"strings"
 )
 
 var commonFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:     "domain",
+		Aliases:  []string{"d"},
+		Usage:    "域名",
+		Required: false,
+		Value:    "",
+	},
 	&cli.StringFlag{
 		Name:     "band",
 		Aliases:  []string{"b"},
@@ -18,7 +32,7 @@ var commonFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:     "resolvers",
 		Aliases:  []string{"r"},
-		Usage:    "dns服务器文件路径，一行一个dns地址",
+		Usage:    "dns服务器文件路径，一行一个dns地址，默认会使用内置dns",
 		Required: false,
 		Value:    "",
 	},
@@ -61,15 +75,15 @@ var commonFlags = []cli.Flag{
 		Usage:   "不打印域名结果",
 		Value:   false,
 	},
-	&cli.IntFlag{
+	&cli.StringFlag{
 		Name:  "dns-type",
-		Usage: "dns类型 1为a记录 2为ns记录 5为cname记录 16为txt",
-		Value: 1,
+		Usage: "dns类型 可以是a,aaaa,ns,cname,txt",
+		Value: "a",
 	},
 }
 
 var verifyCommand = &cli.Command{
-	Name:    "verify",
+	Name:    runner.VerifyType,
 	Aliases: []string{"v"},
 	Usage:   "验证模式",
 	Flags: append([]cli.Flag{
@@ -85,30 +99,70 @@ var verifyCommand = &cli.Command{
 		if c.NumFlags() == 0 {
 			cli.ShowCommandHelpAndExit(c, "verify", 0)
 		}
+		var domains []string
+		var writer []outputter.Output
+		var processBar processbar.ProcessBar = &processbar.ScreenProcess{}
+		if c.String("domain") != "" {
+			domains = append(domains, c.String("domain"))
+		}
+		if c.Bool("stdin") {
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Split(bufio.ScanLines)
+			for scanner.Scan() {
+				domains = append(domains, scanner.Text())
+			}
+		}
+		if c.String("filename") != "" {
+			f2, err := os.Open(c.String("filename"))
+			if err != nil {
+				gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+			}
+			defer f2.Close()
+			reader := bufio.NewScanner(f2)
+			reader.Split(bufio.ScanLines)
+			for reader.Scan() {
+				domains = append(domains, reader.Text())
+			}
+		}
+		if c.String("output") != "" {
+			fileWriter, err := output.NewFileOutput(c.String("output"))
+			if err != nil {
+				gologger.Fatalf(err.Error())
+			}
+			writer = append(writer, fileWriter)
+		}
+		if c.Bool("not-print") {
+			processBar = nil
+		}
+
+		screenWriter, err := output.NewScreenOutput(c.Bool("only-domain"))
+		if err != nil {
+			gologger.Fatalf(err.Error())
+		}
+		writer = append(writer, screenWriter)
+
 		opt := &options.Options{
-			Rate:         options.Band2Rate(c.String("band")),
-			Domain:       nil,
-			FileName:     c.String("filename"),
-			Resolvers:    options.GetResolvers(c.String("resolvers")),
-			Output:       c.String("output"),
-			Silent:       c.Bool("silent"),
-			Stdin:        c.Bool("stdin"),
-			SkipWildCard: false,
-			TimeOut:      c.Int("timeout"),
-			Retry:        c.Int("retry"),
-			Method:       "verify",
-			OnlyDomain:   c.Bool("only-domain"),
-			NotPrint:     c.Bool("not-print"),
-			DnsType:      c.Int("dns-type"),
+			Rate:        options.Band2Rate(c.String("band")),
+			Domain:      strings.NewReader(strings.Join(domains, "\n")),
+			DomainTotal: len(domains),
+			Resolvers:   options.GetResolvers(c.String("resolvers")),
+			Silent:      c.Bool("silent"),
+			TimeOut:     c.Int("timeout"),
+			Retry:       c.Int("retry"),
+			Method:      runner.VerifyType,
+			DnsType:     c.String("dns-type"),
+			Writer:      writer,
+			ProcessBar:  processBar,
 		}
 		opt.Check()
-
+		opt.EtherInfo = options.GetDeviceConfig()
+		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {
 			gologger.Fatalf("%s\n", err.Error())
 			return nil
 		}
-		r.RunEnumeration()
+		r.RunEnumeration(ctx)
 		r.Close()
 		return nil
 	},

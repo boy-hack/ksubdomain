@@ -1,25 +1,28 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"github.com/boy-hack/ksubdomain/core"
+	"github.com/boy-hack/ksubdomain/core/dns"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
 	"github.com/boy-hack/ksubdomain/runner"
+	"github.com/boy-hack/ksubdomain/runner/outputter"
+	"github.com/boy-hack/ksubdomain/runner/outputter/output"
+	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
+	"math/rand"
+	"os"
+	"strings"
 )
 
 var enumCommand = &cli.Command{
-	Name:    "enum",
+	Name:    runner.EnumType,
 	Aliases: []string{"e"},
 	Usage:   "枚举域名",
 	Flags: append(commonFlags, []cli.Flag{
-		&cli.StringFlag{
-			Name:     "domain",
-			Aliases:  []string{"d"},
-			Usage:    "爆破的域名",
-			Required: false,
-			Value:    "",
-		},
+
 		&cli.StringFlag{
 			Name:     "domainList",
 			Aliases:  []string{"dl"},
@@ -37,6 +40,11 @@ var enumCommand = &cli.Command{
 		&cli.BoolFlag{
 			Name:  "skip-wild",
 			Usage: "跳过泛解析域名",
+			Value: false,
+		},
+		&cli.BoolFlag{
+			Name:  "ns",
+			Usage: "读取域名ns记录并加入到ns解析器中",
 			Value: false,
 		},
 		&cli.IntFlag{
@@ -57,6 +65,11 @@ var enumCommand = &cli.Command{
 			cli.ShowCommandHelpAndExit(c, "enum", 0)
 		}
 		var domains []string
+		var writer []outputter.Output
+		var processBar processbar.ProcessBar = &processbar.ScreenProcess{}
+		var err error
+		var domainTotal int = 0
+
 		// handle domain
 		if c.String("domain") != "" {
 			domains = append(domains, c.String("domain"))
@@ -68,6 +81,35 @@ var enumCommand = &cli.Command{
 			}
 			domains = append(dl, domains...)
 		}
+		if c.Bool("stdin") {
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Split(bufio.ScanLines)
+			for scanner.Scan() {
+				domains = append(domains, scanner.Text())
+			}
+		}
+		if c.Bool("skip-wild") {
+			tmp := domains
+			domains = []string{}
+			for _, sub := range tmp {
+				if !core.IsWildCard(sub) {
+					domains = append(domains, sub)
+				} else {
+					gologger.Infof("域名:%s 存在泛解析,已跳过", sub)
+				}
+			}
+		}
+
+		var subdomainDict []string
+		if c.String("filename") == "" {
+			subdomainDict = core.GetDefaultSubdomainData()
+		} else {
+			subdomainDict, err = core.LinesInFile(c.String("filename"))
+			if err != nil {
+				gologger.Fatalf("打开文件:%s 错误:%s", c.String("filename"), err.Error())
+			}
+		}
+
 		levelDict := c.String("level-dict")
 		var levelDomains []string
 		if levelDict != "" {
@@ -80,33 +122,79 @@ var enumCommand = &cli.Command{
 			levelDomains = core.GetDefaultSubNextData()
 		}
 
+		reader := strings.Builder{}
+		for _, sub := range subdomainDict {
+			for _, domain := range domains {
+				dd := sub + "." + domain
+				reader.WriteString(dd + "\n")
+				domainTotal++
+
+				if len(levelDomains) > 0 {
+					for _, sub2 := range levelDomains {
+						reader.WriteString(sub2 + "." + dd + "\n")
+						domainTotal++
+					}
+				}
+			}
+		}
+
+		// 取域名的dns,加入到resolver中
+		specialDns := make(map[string][]string)
+		defaultResolver := options.GetResolvers(c.String("resolvers"))
+		if c.Bool("ns") {
+			for _, domain := range domains {
+				nsServers, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
+				if err != nil {
+					continue
+				}
+				specialDns[domain] = ips
+				gologger.Infof("%s ns:%v", domain, nsServers)
+			}
+
+		}
+
+		if c.String("output") != "" {
+			fileWriter, err := output.NewFileOutput(c.String("output"))
+			if err != nil {
+				gologger.Fatalf(err.Error())
+			}
+			writer = append(writer, fileWriter)
+		}
+		if c.Bool("not-print") {
+			processBar = nil
+		}
+
+		screenWriter, err := output.NewScreenOutput(c.Bool("only-domain"))
+		if err != nil {
+			gologger.Fatalf(err.Error())
+		}
+		writer = append(writer, screenWriter)
+
 		opt := &options.Options{
-			Rate:         options.Band2Rate(c.String("band")),
-			Domain:       domains,
-			FileName:     c.String("filename"),
-			Resolvers:    options.GetResolvers(c.String("resolvers")),
-			Output:       c.String("output"),
-			Silent:       c.Bool("silent"),
-			Stdin:        c.Bool("stdin"),
-			SkipWildCard: c.Bool("skip-wild"),
-			TimeOut:      c.Int("timeout"),
-			Retry:        c.Int("retry"),
-			Method:       "enum",
-			OnlyDomain:   c.Bool("only-domain"),
-			NotPrint:     c.Bool("not-print"),
-			Level:        c.Int("level"),
-			LevelDomains: levelDomains,
-			DnsType:      c.Int("dns-type"),
+			Rate:             options.Band2Rate(c.String("band")),
+			Domain:           strings.NewReader(reader.String()),
+			DomainTotal:      domainTotal,
+			Resolvers:        defaultResolver,
+			Silent:           c.Bool("silent"),
+			TimeOut:          c.Int("timeout"),
+			Retry:            c.Int("retry"),
+			Method:           runner.VerifyType,
+			DnsType:          c.String("dns-type"),
+			Writer:           writer,
+			ProcessBar:       processBar,
+			SpecialResolvers: specialDns,
 		}
 		opt.Check()
-
+		opt.EtherInfo = options.GetDeviceConfig()
+		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {
 			gologger.Fatalf("%s\n", err.Error())
 			return nil
 		}
-		r.RunEnumeration()
+		r.RunEnumeration(ctx)
 		r.Close()
+
 		return nil
 	},
 }

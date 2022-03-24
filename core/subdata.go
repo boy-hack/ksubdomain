@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	_ "embed"
 	"strings"
 )
@@ -12,9 +13,20 @@ var subnext string
 var subdomain string
 
 func GetDefaultSubdomainData() []string {
-	return strings.Split(subdomain, "\n")
+	reader := bufio.NewScanner(strings.NewReader(subdomain))
+	reader.Split(bufio.ScanLines)
+	var ret []string
+	for reader.Scan() {
+		ret = append(ret, reader.Text())
+	}
+	return ret
 }
-
 func GetDefaultSubNextData() []string {
-	return strings.Split(subnext, "\n")
+	reader := bufio.NewScanner(strings.NewReader(subnext))
+	reader.Split(bufio.ScanLines)
+	var ret []string
+	for reader.Scan() {
+		ret = append(ret, reader.Text())
+	}
+	return ret
 }

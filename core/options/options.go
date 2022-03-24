@@ -1,29 +1,32 @@
 package options
 
 import (
+	"fmt"
 	"github.com/boy-hack/ksubdomain/core"
+	"github.com/boy-hack/ksubdomain/core/device"
 	"github.com/boy-hack/ksubdomain/core/gologger"
-	"os"
+	"github.com/boy-hack/ksubdomain/runner/outputter"
+	"github.com/boy-hack/ksubdomain/runner/processbar"
+	"github.com/google/gopacket/layers"
+	"io"
 	"strconv"
+	"strings"
 )
 
 type Options struct {
-	Rate         int64
-	Domain       []string
-	FileName     string // 字典文件名
-	Resolvers    []string
-	Output       string // 输出文件名
-	Silent       bool
-	Stdin        bool
-	SkipWildCard bool
-	TimeOut      int
-	Retry        int
-	Method       string // verify模式 enum模式 test模式
-	OnlyDomain   bool
-	NotPrint     bool
-	Level        int
-	LevelDomains []string
-	DnsType      int
+	Rate             int64              // 每秒发包速率
+	Domain           io.Reader          // 域名输入
+	DomainTotal      int                // 扫描域名总数
+	Resolvers        []string           // dns resolvers
+	Silent           bool               // 安静模式
+	TimeOut          int                // 超时时间 单位(秒)
+	Retry            int                // 最大重试次数
+	Method           string             // verify模式 enum模式 test模式
+	DnsType          string             // dns类型 a ns aaaa
+	Writer           []outputter.Output // 输出结构
+	ProcessBar       processbar.ProcessBar
+	EtherInfo        *device.EtherTable  // 网卡信息
+	SpecialResolvers map[string][]string // 可针对特定域名使用的dns resolvers
 }
 
 func Band2Rate(bandWith string) int64 {
@@ -65,7 +68,7 @@ func GetResolvers(resolvers string) []string {
 		defaultDns := []string{
 			"223.5.5.5",
 			"223.6.6.6",
-			"180.76.76.76",
+			//"180.76.76.76",
 			"119.29.29.29",
 			"182.254.116.116",
 			"114.114.114.115",
@@ -82,34 +85,46 @@ func (opt *Options) Check() {
 
 	core.ShowBanner()
 
-	if opt.Method == "verify" {
-		if opt.Stdin {
-
-		} else {
-			if opt.FileName == "" || !core.FileExists(opt.FileName) {
-				gologger.Fatalf("域名验证文件:%s 不存在! \n", opt.FileName)
-			}
-		}
-	} else if opt.Method == "enum" {
-		if opt.FileName != "" && !core.FileExists(opt.FileName) {
-			gologger.Fatalf("字典文件:%s 不存在! \n", opt.FileName)
-		}
-		if opt.Stdin {
-
-		} else {
-			if len(opt.Domain) == 0 {
-				gologger.Fatalf("域名未指定目标")
-			}
-		}
+}
+func DnsType(s string) (layers.DNSType, error) {
+	s = strings.ToLower(s)
+	switch s {
+	case "a":
+		return layers.DNSTypeA, nil
+	case "ns":
+		return layers.DNSTypeNS, nil
+	case "cname":
+		return layers.DNSTypeCNAME, nil
+	case "txt":
+		return layers.DNSTypeTXT, nil
+	case "aaaa":
+		return layers.DNSTypeAAAA, nil
+	case "uri":
+		return layers.DNSTypeURI, nil
+	default:
+		return layers.DNSTypeA, fmt.Errorf("无法将%s转换为DNSType类型", s)
 	}
 }
-func HasStdin() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
+func GetDeviceConfig() *device.EtherTable {
+	filename := "ksubdomain.yaml"
+	var ether *device.EtherTable
+	var err error
+	if core.FileExists(filename) {
+		ether, err = device.ReadConfig(filename)
+		if err != nil {
+			gologger.Fatalf("读取配置失败:%v", err)
+		}
+		gologger.Infof("读取配置%s成功!\n", filename)
+	} else {
+		ether = device.AutoGetDevices()
+		err = ether.SaveConfig(filename)
+		if err != nil {
+			gologger.Fatalf("保存配置失败:%v", err)
+		}
 	}
-	if fi.Mode()&os.ModeNamedPipe == 0 {
-		return false
-	}
-	return true
+	gologger.Infof("Use Device: %s\n", ether.Device)
+	gologger.Infof("Use IP:%s\n", ether.SrcIp.String())
+	gologger.Infof("Local Mac: %s\n", ether.SrcMac.String())
+	gologger.Infof("GateWay Mac: %s\n", ether.DstMac.String())
+	return ether
 }

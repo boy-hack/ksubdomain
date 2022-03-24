@@ -1,55 +1,51 @@
 package runner
 
 import (
+	"context"
+	"github.com/boy-hack/ksubdomain/core/dns"
+	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
-	"path/filepath"
+	"github.com/boy-hack/ksubdomain/runner/outputter"
+	"github.com/boy-hack/ksubdomain/runner/outputter/output"
+	"github.com/boy-hack/ksubdomain/runner/processbar"
+	"strings"
 	"testing"
 )
 
-func TestVerify(t *testing.T) {
-	filename, _ := filepath.Abs("../test/data/verify.txt")
-
+func TestRunner(t *testing.T) {
+	process := processbar.ScreenProcess{}
+	screenPrinter, _ := output.NewScreenOutput(false)
+	domains := []string{"stu.baidu.com", "haokan.baidu.com"}
+	_, ns, err := dns.LookupNS("baidu.com", "1.1.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	opt := &options.Options{
-		Rate:         options.Band2Rate("1m"),
-		Domain:       nil,
-		FileName:     filename,
-		Resolvers:    options.GetResolvers(""),
-		Output:       "",
-		Silent:       false,
-		Stdin:        false,
-		SkipWildCard: false,
-		TimeOut:      3,
-		Retry:        3,
-		Method:       "verify",
+		Rate:        options.Band2Rate("1m"),
+		Domain:      strings.NewReader(strings.Join(domains, "\n")),
+		DomainTotal: 2,
+		Resolvers:   options.GetResolvers(""),
+		Silent:      false,
+		TimeOut:     10,
+		Retry:       3,
+		Method:      VerifyType,
+		DnsType:     "a",
+		Writer: []outputter.Output{
+			screenPrinter,
+		},
+		ProcessBar: &process,
+		EtherInfo:  options.GetDeviceConfig(),
+		SpecialResolvers: map[string][]string{
+			"baidu.com": ns,
+		},
 	}
 	opt.Check()
 	r, err := New(opt)
 	if err != nil {
-		t.Fatal(err)
+		gologger.Fatalf(err.Error())
 	}
-	r.RunEnumeration()
+	ctx := context.Background()
+	r.RunEnumeration(ctx)
 	r.Close()
-}
 
-func TestEnum(t *testing.T) {
-	opt := &options.Options{
-		Rate:         options.Band2Rate("1m"),
-		Domain:       []string{"baidu.com"},
-		FileName:     "",
-		Resolvers:    options.GetResolvers(""),
-		Output:       "",
-		Silent:       false,
-		Stdin:        false,
-		SkipWildCard: false,
-		TimeOut:      3,
-		Retry:        3,
-		Method:       "enum",
-	}
-	opt.Check()
-	r, err := New(opt)
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.RunEnumeration()
-	r.Close()
 }
