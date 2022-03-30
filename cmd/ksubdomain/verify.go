@@ -124,8 +124,9 @@ var verifyCommand = &cli.Command{
 				domains = append(domains, reader.Text())
 			}
 		}
+		onlyDomain := c.Bool("only-domain")
 		if c.String("output") != "" {
-			fileWriter, err := output.NewFileOutput(c.String("output"))
+			fileWriter, err := output.NewFileOutput(c.String("output"), onlyDomain)
 			if err != nil {
 				gologger.Fatalf(err.Error())
 			}
@@ -134,8 +135,7 @@ var verifyCommand = &cli.Command{
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-
-		screenWriter, err := output.NewScreenOutput(c.Bool("only-domain"))
+		screenWriter, err := output.NewScreenOutput(onlyDomain)
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
