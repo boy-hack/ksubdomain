@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/device"
@@ -132,11 +131,8 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 	go r.sendCycle()     // 发送线程
 	go r.handleResult()  // 处理结果，打印输出
 	go func() {
-		scanner := bufio.NewScanner(r.options.Domain)
-		scanner.Split(bufio.ScanLines)
-		for scanner.Scan() {
-			line := scanner.Text()
-			r.sender <- line
+		for domain := range r.options.Domain {
+			r.sender <- domain
 		}
 		r.fisrtloadChanel <- "ok"
 	}()

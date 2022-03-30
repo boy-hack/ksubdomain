@@ -8,14 +8,13 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/outputter"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/google/gopacket/layers"
-	"io"
 	"strconv"
 	"strings"
 )
 
 type Options struct {
 	Rate             int64              // 每秒发包速率
-	Domain           io.Reader          // 域名输入
+	Domain           chan string        // 域名输入
 	DomainTotal      int                // 扫描域名总数
 	Resolvers        []string           // dns resolvers
 	Silent           bool               // 安静模式

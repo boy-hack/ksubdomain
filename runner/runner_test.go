@@ -8,7 +8,6 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/outputter"
 	"github.com/boy-hack/ksubdomain/runner/outputter/output"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
-	"strings"
 	"testing"
 )
 
@@ -20,9 +19,16 @@ func TestRunner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	domainChanel := make(chan string)
+	go func() {
+		for _, d := range domains {
+			domainChanel <- d
+		}
+		close(domainChanel)
+	}()
 	opt := &options.Options{
 		Rate:        options.Band2Rate("1m"),
-		Domain:      strings.NewReader(strings.Join(domains, "\n")),
+		Domain:      domainChanel,
 		DomainTotal: 2,
 		Resolvers:   options.GetResolvers(""),
 		Silent:      false,
@@ -47,5 +53,4 @@ func TestRunner(t *testing.T) {
 	ctx := context.Background()
 	r.RunEnumeration(ctx)
 	r.Close()
-
 }

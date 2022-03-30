@@ -11,7 +11,6 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
 	"os"
-	"strings"
 )
 
 var commonFlags = []cli.Flag{
@@ -112,18 +111,26 @@ var verifyCommand = &cli.Command{
 				domains = append(domains, scanner.Text())
 			}
 		}
-		if c.String("filename") != "" {
-			f2, err := os.Open(c.String("filename"))
-			if err != nil {
-				gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+		render := make(chan string)
+		go func() {
+			for _, line := range domains {
+				render <- line
 			}
-			defer f2.Close()
-			reader := bufio.NewScanner(f2)
-			reader.Split(bufio.ScanLines)
-			for reader.Scan() {
-				domains = append(domains, reader.Text())
+			if c.String("filename") != "" {
+				f2, err := os.Open(c.String("filename"))
+				if err != nil {
+					gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+				}
+				defer f2.Close()
+				iofile := bufio.NewScanner(f2)
+				iofile.Split(bufio.ScanLines)
+				for iofile.Scan() {
+					render <- iofile.Text()
+				}
 			}
-		}
+			close(render)
+		}()
+
 		onlyDomain := c.Bool("only-domain")
 		if c.String("output") != "" {
 			fileWriter, err := output.NewFileOutput(c.String("output"), onlyDomain)
@@ -143,7 +150,7 @@ var verifyCommand = &cli.Command{
 
 		opt := &options.Options{
 			Rate:        options.Band2Rate(c.String("band")),
-			Domain:      strings.NewReader(strings.Join(domains, "\n")),
+			Domain:      render,
 			DomainTotal: len(domains),
 			Resolvers:   options.GetResolvers(c.String("resolvers")),
 			Silent:      c.Bool("silent"),

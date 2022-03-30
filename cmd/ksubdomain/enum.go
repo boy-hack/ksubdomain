@@ -14,7 +14,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"math/rand"
 	"os"
-	"strings"
 )
 
 var enumCommand = &cli.Command{
@@ -122,20 +121,25 @@ var enumCommand = &cli.Command{
 			levelDomains = core.GetDefaultSubNextData()
 		}
 
-		reader := strings.Builder{}
-		for _, sub := range subdomainDict {
-			for _, domain := range domains {
-				dd := sub + "." + domain
-				reader.WriteString(dd + "\n")
-				domainTotal++
-
-				if len(levelDomains) > 0 {
-					for _, sub2 := range levelDomains {
-						reader.WriteString(sub2 + "." + dd + "\n")
-						domainTotal++
+		render := make(chan string)
+		go func() {
+			defer close(render)
+			for _, sub := range subdomainDict {
+				for _, domain := range domains {
+					dd := sub + "." + domain
+					render <- dd
+					if len(levelDomains) > 0 {
+						for _, sub2 := range levelDomains {
+							dd2 := sub2 + "." + dd
+							render <- dd2
+						}
 					}
 				}
 			}
+		}()
+		domainTotal = len(subdomainDict) * len(domains)
+		if len(levelDomains) > 0 {
+			domainTotal *= len(levelDomains)
 		}
 
 		// 取域名的dns,加入到resolver中
@@ -173,7 +177,7 @@ var enumCommand = &cli.Command{
 
 		opt := &options.Options{
 			Rate:             options.Band2Rate(c.String("band")),
-			Domain:           strings.NewReader(reader.String()),
+			Domain:           render,
 			DomainTotal:      domainTotal,
 			Resolvers:        defaultResolver,
 			Silent:           c.Bool("silent"),
