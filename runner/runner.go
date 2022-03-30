@@ -55,7 +55,14 @@ func New(opt *options.Options) (*runner, error) {
 	gologger.Infof(version + "\n")
 	r.options = opt
 	r.hm = statusdb.CreateMemoryDB()
-	gologger.Infof("DNS:%s\n", core.SliceToString(opt.Resolvers))
+	gologger.Infof("Default DNS:%s\n", core.SliceToString(opt.Resolvers))
+	if len(opt.SpecialResolvers) > 0 {
+		var keys []string
+		for k, _ := range opt.SpecialResolvers {
+			keys = append(keys, k)
+		}
+		gologger.Infof("Special DNS:%s\n", core.SliceToString(keys))
+	}
 	r.handle, err = device.PcapInit(opt.EtherInfo.Device)
 	if err != nil {
 		return nil, err
