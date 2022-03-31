@@ -76,7 +76,7 @@ func New(opt *options.Options) (*runner, error) {
 	}
 	limit := int(math.Min(calcLimit, float64(opt.Rate)))
 	r.limit = ratelimit.New(limit) // per second
-
+	gologger.Infof("Domain Count:%d\n", r.options.DomainTotal)
 	gologger.Infof("Rate:%dpps\n", limit)
 
 	r.sender = make(chan string, 99)        // 协程发送缓冲

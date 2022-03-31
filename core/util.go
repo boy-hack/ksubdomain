@@ -2,7 +2,9 @@ package core
 
 import (
 	"bufio"
+	"bytes"
 	"golang.org/x/crypto/ssh/terminal"
+	"io"
 	"math/rand"
 	"os"
 	"strings"
@@ -42,6 +44,42 @@ func LinesInFile(fileName string) ([]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// LinesReaderInFile 读取文件，返回行数
+func LinesReaderInFile(filename string) (int, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	var readSize int
+	var count int
+	buf := make([]byte, 1024)
+
+	for {
+		readSize, err = r.Read(buf)
+		if err != nil {
+			break
+		}
+		var buffPosition int
+		for {
+			i := bytes.IndexByte(buf[buffPosition:], '\n')
+			if i == -1 || readSize == buffPosition {
+				break
+			}
+			buffPosition += i + 1
+			count++
+		}
+	}
+	if readSize > 0 && count == 0 || count > 0 {
+		count++
+	}
+	if err == io.EOF {
+		return count, nil
+	}
+	return count, err
 }
 
 func FileExists(path string) bool {
