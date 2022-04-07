@@ -20,9 +20,16 @@ func main() {
 	screenPrinter, _ := output.NewScreenOutput(false)
 
 	domains := []string{"www.hacking8.com", "x.hacking8.com"}
+	domainChanel := make(chan string)
+	go func() {
+		for _, d := range domains {
+			domainChanel <- d
+		}
+		close(domainChanel)
+	}()
 	opt := &options.Options{
 		Rate:        options.Band2Rate("1m"),
-		Domain:      strings.NewReader(strings.Join(domains, "\n")),
+		Domain:      domainChanel,
 		DomainTotal: 2,
 		Resolvers:   options.GetResolvers(""),
 		Silent:      false,
