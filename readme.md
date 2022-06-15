@@ -7,7 +7,7 @@ hacking8信息流的src资产收集 https://i.hacking8.com/src/ 用的是ksubdom
 1. 下载二进制 https://github.com/boy-hack/ksubdomain/releases
 2. 安装libpcap环境
    - Windows
-     下载`winpcap`驱动:https://www.winpcap.org/install/default.htm
+     下载`npcap`驱动，winpcap驱动有人反馈无效
    - Linux
      已经静态编译打包libpcap，无需其他操作
    - MacOS
