@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
 	"github.com/boy-hack/ksubdomain/runner/outputter"
@@ -47,14 +48,14 @@ func TestRunner(t *testing.T) {
 	r.Close()
 }
 
-func TestRunnerMany(t *testing.T) {
-	process := processbar.FakeScreenProcess{}
+func TestRunnerEnum(t *testing.T) {
+	process := processbar.ScreenProcess{}
 	screenPrinter, _ := output.NewScreenOutputNoWidth()
-	domains := []string{"stu.baidu.com", "haokan.baidu.com"}
+	domains := core.GetDefaultSubdomainData()
 	domainChanel := make(chan string)
 	go func() {
 		for _, d := range domains {
-			domainChanel <- d
+			domainChanel <- d + ".baidu.com"
 		}
 		close(domainChanel)
 	}()
