@@ -8,6 +8,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -40,10 +41,11 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	return "", errors.New("dns record error")
 }
 
-func (r *runner) recvChanel(ctx context.Context) error {
+func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
+	defer wg.Done()
 	var (
 		snapshotLen = 65536
-		timeout     = -1 * time.Second
+		timeout     = 5 * time.Second
 		err         error
 	)
 	inactive, err := pcap.NewInactiveHandle(r.options.EtherInfo.Device)
@@ -74,26 +76,24 @@ func (r *runner) recvChanel(ctx context.Context) error {
 	}
 
 	// Listening
-
-	var udp layers.UDP
-	var dns layers.DNS
-	var eth layers.Ethernet
-	var ipv4 layers.IPv4
-	var ipv6 layers.IPv6
-
-	parser := gopacket.NewDecodingLayerParser(
-		layers.LayerTypeEthernet, &eth, &ipv4, &ipv6, &udp, &dns)
-
-	var data []byte
-	var decoded []gopacket.LayerType
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
+	dnsChanel := make(chan layers.DNS, 999)
+	go func() {
+		var udp layers.UDP
+		var dns layers.DNS
+		var eth layers.Ethernet
+		var ipv4 layers.IPv4
+		var ipv6 layers.IPv6
+		parser := gopacket.NewDecodingLayerParser(
+			layers.LayerTypeEthernet, &eth, &ipv4, &ipv6, &udp, &dns)
+		var data []byte
+		var decoded []gopacket.LayerType
+		for {
 			data, _, err = handle.ReadPacketData()
 			if err != nil {
-				continue
+				if errors.Is(pcap.NextErrorTimeoutExpired, err) {
+					continue
+				}
+				return
 			}
 			err = parser.DecodeLayers(data, &decoded)
 			if err != nil {
@@ -109,6 +109,14 @@ func (r *runner) recvChanel(ctx context.Context) error {
 			if len(dns.Questions) == 0 {
 				continue
 			}
+			dnsChanel <- dns
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case dns := <-dnsChanel:
 			subdomain := string(dns.Questions[0].Name)
 			r.hm.Del(subdomain)
 			if dns.ANCount > 0 {

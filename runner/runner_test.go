@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"github.com/boy-hack/ksubdomain/core/dns"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
 	"github.com/boy-hack/ksubdomain/runner/outputter"
@@ -12,13 +11,9 @@ import (
 )
 
 func TestRunner(t *testing.T) {
-	process := processbar.ScreenProcess{}
-	screenPrinter, _ := output.NewScreenOutput(false)
+	process := processbar.FakeScreenProcess{}
+	screenPrinter, _ := output.NewScreenOutputNoWidth()
 	domains := []string{"stu.baidu.com", "haokan.baidu.com"}
-	_, ns, err := dns.LookupNS("baidu.com", "1.1.1.1")
-	if err != nil {
-		t.Fatal(err)
-	}
 	domainChanel := make(chan string)
 	go func() {
 		for _, d := range domains {
@@ -32,8 +27,8 @@ func TestRunner(t *testing.T) {
 		DomainTotal: 2,
 		Resolvers:   options.GetResolvers(""),
 		Silent:      false,
-		TimeOut:     10,
-		Retry:       3,
+		TimeOut:     5,
+		Retry:       1,
 		Method:      VerifyType,
 		DnsType:     "a",
 		Writer: []outputter.Output{
@@ -41,9 +36,6 @@ func TestRunner(t *testing.T) {
 		},
 		ProcessBar: &process,
 		EtherInfo:  options.GetDeviceConfig(),
-		SpecialResolvers: map[string][]string{
-			"baidu.com": ns,
-		},
 	}
 	opt.Check()
 	r, err := New(opt)
@@ -53,4 +45,47 @@ func TestRunner(t *testing.T) {
 	ctx := context.Background()
 	r.RunEnumeration(ctx)
 	r.Close()
+}
+
+func TestRunnerMany(t *testing.T) {
+	process := processbar.FakeScreenProcess{}
+	screenPrinter, _ := output.NewScreenOutputNoWidth()
+	domains := []string{"stu.baidu.com", "haokan.baidu.com"}
+	domainChanel := make(chan string)
+	go func() {
+		for _, d := range domains {
+			domainChanel <- d
+		}
+		close(domainChanel)
+	}()
+	opt := &options.Options{
+		Rate:        options.Band2Rate("1m"),
+		Domain:      domainChanel,
+		DomainTotal: len(domains),
+		Resolvers:   options.GetResolvers(""),
+		Silent:      false,
+		TimeOut:     5,
+		Retry:       1,
+		Method:      VerifyType,
+		DnsType:     "a",
+		Writer: []outputter.Output{
+			screenPrinter,
+		},
+		ProcessBar: &process,
+		EtherInfo:  options.GetDeviceConfig(),
+	}
+	opt.Check()
+	r, err := New(opt)
+	if err != nil {
+		gologger.Fatalf(err.Error())
+	}
+	ctx := context.Background()
+	r.RunEnumeration(ctx)
+	r.Close()
+}
+
+func TestManyRunner(t *testing.T) {
+	for i := 0; i < 5; i++ {
+		TestRunner(t)
+	}
 }
