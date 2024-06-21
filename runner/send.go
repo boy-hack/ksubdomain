@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func (r *runner) sendCycle() {
+func (r *Runner) sendCycle() {
 	for domain := range r.sender {
 		r.limit.Take()
 		v, ok := r.hm.Get(domain)

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (r *runner) retry(ctx context.Context) {
+func (r *Runner) retry(ctx context.Context) {
 	t := time.NewTicker(1 * time.Second)
 	defer t.Stop()
 	for {

@@ -16,6 +16,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,7 +26,7 @@ const (
 	TestType   = "test"
 )
 
-type runner struct {
+type Runner struct {
 	hm              *statusdb.StatusDb
 	options         *options.Options
 	limit           ratelimit.Limiter
@@ -48,10 +49,10 @@ type runner struct {
 func init() {
 	rand.Seed(time.Now().Unix())
 }
-func New(opt *options.Options) (*runner, error) {
+func New(opt *options.Options) (*Runner, error) {
 	var err error
 	version := pcap.Version()
-	r := new(runner)
+	r := new(Runner)
 	gologger.Infof(version + "\n")
 	r.options = opt
 	r.hm = statusdb.CreateMemoryDB()
@@ -100,7 +101,7 @@ func New(opt *options.Options) (*runner, error) {
 	return r, nil
 }
 
-func (r *runner) choseDns(domain string) string {
+func (r *Runner) choseDns(domain string) string {
 	dns := r.options.Resolvers
 	specialDns := r.options.SpecialResolvers
 	var selectDns string
@@ -116,7 +117,7 @@ func (r *runner) choseDns(domain string) string {
 	return selectDns
 }
 
-func (r *runner) printStatus() {
+func (r *Runner) printStatus() {
 	queue := r.hm.Length()
 	tc := int(time.Since(r.startTime).Seconds())
 	data := &processbar.ProcessData{
@@ -131,13 +132,16 @@ func (r *runner) printStatus() {
 		r.options.ProcessBar.WriteData(data)
 	}
 }
-func (r *runner) RunEnumeration(ctx context.Context) {
+func (r *Runner) RunEnumeration(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go r.recvChanel(ctx) // 启动接收线程
-	go r.sendCycle()     // 发送线程
-	go r.handleResult()  // 处理结果，打印输出
+	wg := &sync.WaitGroup{}
+	wg.Add(3)
+	go r.recvChanel(ctx, wg) // 启动接收线程
+	go r.sendCycle()         // 发送线程
+	go r.handleResult()      // 处理结果，打印输出
 	go func() {
+		defer wg.Done()
 		for domain := range r.options.Domain {
 			r.sender <- domain
 		}
@@ -146,29 +150,35 @@ func (r *runner) RunEnumeration(ctx context.Context) {
 	var isLoadOver bool = false // 是否加载文件完毕
 	t := time.NewTicker(1 * time.Second)
 	defer t.Stop()
-	for {
-		select {
-		case <-t.C:
-			r.printStatus()
-			if isLoadOver {
-				if r.hm.Length() <= 0 {
-					gologger.Printf("\n")
-					gologger.Infof("扫描完毕")
-					return
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.C:
+				r.printStatus()
+				if isLoadOver {
+					length := r.hm.Length()
+					if length <= 0 {
+						gologger.Printf("\n")
+						gologger.Infof("扫描完毕")
+						cancel()
+					}
 				}
+			case <-r.fisrtloadChanel:
+				go r.retry(ctx) // 遍历hm，依次重试
+				isLoadOver = true
+			case <-ctx.Done():
+				return
 			}
-		case <-r.fisrtloadChanel:
-			go r.retry(ctx) // 遍历hm，依次重试
-			isLoadOver = true
-		case <-ctx.Done():
-			return
 		}
-	}
-}
-
-func (r *runner) Close() {
+	}()
+	wg.Wait()
 	close(r.recver)
 	close(r.sender)
+
+}
+
+func (r *Runner) Close() {
 	r.handle.Close()
 	r.hm.Close()
 	if r.options.ProcessBar != nil {
