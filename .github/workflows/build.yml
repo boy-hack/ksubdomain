@@ -21,9 +21,11 @@ jobs:
           go-version: 1.17
         id: go
 
-      - name: Set up libpcap-dev
+      - name: Set up dependencies on Ubuntu
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libpcap-dev gcc libdbus-1-dev -y
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcap-dev gcc libdbus-1-dev
 
       - name: Get version
         id: get_version
@@ -37,7 +39,7 @@ jobs:
 
       - name: Build On Linux
         run: |
-          go build -o ./ksubdomain ./cmd/ksubdomain/
+          go build  -ldflags "-s -w " -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux.tar ksubdomain
         if: matrix.os == 'ubuntu-latest'
@@ -45,12 +47,12 @@ jobs:
           GOENABLE: 1
           CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -ldbus-1 -lpcap -Wl,-Bdynamic"
 
-      - name: Build On Darwin
-        run: |
-          go build -o ./ksubdomain ./cmd/ksubdomain/
-          chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin.tar ksubdomain
-        if: matrix.os == 'macos-latest'
+#      - name: Build On Darwin
+#        run: |
+#          go build -o ./ksubdomain ./cmd/ksubdomain/
+#          chmod +x ksubdomain
+#          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin.tar ksubdomain
+#        if: matrix.os == 'macos-latest'
 
       - name: Build On Windows
         run: |
