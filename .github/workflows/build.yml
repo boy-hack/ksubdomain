@@ -41,7 +41,7 @@ jobs:
         run: |
           go build  -ldflags "-s -w " -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux.tar ksubdomain
+          tar -cvf ksubdomain-${{ steps.get_version.outputs.VERSION }}-linux.tar ksubdomain
         if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
@@ -68,9 +68,9 @@ jobs:
         with:
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
-          files: KSubdomain-*
+          files: ksubdomain-*
           fail_on_unmatched_files: true
-          token: ${{ secrets.TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           append_body: true
         env:
           GITHUB_REPOSITORY: chainreactors/ksubdomain
