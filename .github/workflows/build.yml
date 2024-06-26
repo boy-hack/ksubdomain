@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up libpcap-dev
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libpcap-dev gcc -y
+        run: sudo apt-get install libpcap-dev gcc libdbus-1-dev -y
 
       - name: Get version
         id: get_version
@@ -43,13 +43,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -ldbus-1 -lpcap -Wl,-Bdynamic"
+
       - name: Build On Darwin
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin.tar ksubdomain
         if: matrix.os == 'macos-latest'
+
       - name: Build On Windows
         run: |
           go build -o ./ksubdomain.exe ./cmd/ksubdomain/
@@ -58,6 +60,7 @@ jobs:
         env:
           GOOS: windows
           GOENABLE: 1
+
       - name: Release
         uses: softprops/action-gh-release@master
         with:
