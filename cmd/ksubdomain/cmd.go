@@ -17,6 +17,13 @@ func main() {
 			verifyCommand,
 			testCommand,
 		},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "json",
+				Aliases: []string{"j"},
+				Usage:   "json output",
+			},
+		},
 	}
 
 	err := app.Run(os.Args)

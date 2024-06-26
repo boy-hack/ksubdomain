@@ -68,4 +68,4 @@ jobs:
           token: ${{ secrets.TOKEN }}
           append_body: true
         env:
-          GITHUB_REPOSITORY: boy-hack/ksubdomain
+          GITHUB_REPOSITORY: chainreactors/ksubdomain

@@ -170,6 +170,7 @@ var verifyCommand = &cli.Command{
 			DnsType:     c.String("dns-type"),
 			Writer:      writer,
 			ProcessBar:  processBar,
+			Json:        c.Bool("json"),
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig()

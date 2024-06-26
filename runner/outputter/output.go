@@ -5,6 +5,6 @@ import (
 )
 
 type Output interface {
-	WriteDomainResult(domain result.Result) error
+	WriteDomainResult(domain result.Result, jsonFormat bool) error
 	Close()
 }
