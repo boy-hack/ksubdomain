@@ -10,7 +10,7 @@ jobs:
       matrix:
         os:
           - ubuntu-20.04
-          - macos-latest
+          - macos-13
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -33,16 +33,16 @@ jobs:
         run: go mod download
 
       - name: Build On Linux
-        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/
+        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/ksubdomain/
         if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
           CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
       - name: Build On Darwin
-        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/
-        if: matrix.os == 'macos-latest'
+        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/ksubdomain/
+        if: matrix.os == 'macos-13'
       - name: Build On Windows
-        run: go build -o ./ksubdomain_windows.exe ./cmd/
+        run: go build -o ./ksubdomain_windows.exe ./cmd/ksubdomain/
         if: matrix.os == 'ubuntu-20.04'
         env:
           GOOS: windows
