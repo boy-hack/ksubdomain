@@ -1,7 +1,7 @@
 package conf
 
 const (
-	Version     = "1.9.5"
+	Version     = "1.9.8"
 	AppName     = "KSubdomain"
 	Description = "无状态子域名爆破工具"
 )

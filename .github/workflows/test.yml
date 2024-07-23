@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-20.04
           - macos-latest
     steps:
       - name: Set up Go 1.17
@@ -19,7 +19,7 @@ jobs:
         id: go
 
       - name: Set up libpcap-dev
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         run: sudo apt-get install libpcap-dev gcc -y
 
 #      - name: Set up Darwin libpcap
@@ -34,7 +34,7 @@ jobs:
 
       - name: Build On Linux
         run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
           CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
@@ -43,7 +43,7 @@ jobs:
         if: matrix.os == 'macos-latest'
       - name: Build On Windows
         run: go build -o ./ksubdomain_windows.exe ./cmd/
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         env:
           GOOS: windows
           GOENABLE: 1
