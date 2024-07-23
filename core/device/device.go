@@ -69,7 +69,6 @@ func AutoGetDevices() *EtherTable {
 					var data []byte
 					var decoded []gopacket.LayerType
 					data, _, err = handle.ReadPacketData()
-					fmt.Printf("recv:%v", data)
 					if err != nil {
 						if errors.Is(pcap.NextErrorTimeoutExpired, err) {
 							continue
@@ -107,10 +106,11 @@ func AutoGetDevices() *EtherTable {
 			return c
 		default:
 			net.LookupHost(domain)
+			fmt.Printf(".")
 			time.Sleep(time.Second * 1)
 			index += 1
 			if index > 60 {
-				fmt.Printf("timeout")
+				gologger.Errorf("获取网络设备失败:%s\n", err.Error())
 				cancel()
 				return nil
 			}
