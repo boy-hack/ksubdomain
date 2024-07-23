@@ -24,7 +24,7 @@ jobs:
         id: go
 
       - name: Set up libpcap-dev
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         run: sudo apt-get install libpcap-dev gcc -y
 
       - name: Get version
