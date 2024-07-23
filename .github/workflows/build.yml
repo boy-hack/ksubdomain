@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up libpcap-dev
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libpcap-dev gcc -y
+        run: sudo apt-get install libpcap-dev gcc libdbus-1-dev -y
 
       - name: Get version
         id: get_version
