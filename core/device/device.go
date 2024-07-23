@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
@@ -13,27 +14,28 @@ import (
 )
 
 func AutoGetDevices() *EtherTable {
-	domain := core.RandomStr(4) + ".i.hacking8.com"
-	signal := make(chan *EtherTable)
+	domain := core.RandomStr(4) + ".hacking8.com"
 	devices, err := pcap.FindAllDevs()
 	if err != nil {
 		gologger.Fatalf("获取网络设备失败:%s\n", err.Error())
 	}
-	data := make(map[string]net.IP)
-	keys := []string{}
+	deviceData := make(map[string]net.IP)
+	signal := make(chan *EtherTable)
 	for _, d := range devices {
 		for _, address := range d.Addresses {
 			ip := address.IP
-			if ip.To4() != nil && !ip.IsLoopback() {
-				data[d.Name] = ip
-				keys = append(keys, d.Name)
+			if len(ip) == 0 {
+				continue
+			}
+			if ip.To4() != nil {
+				deviceData[d.Name] = ip
 			}
 		}
 	}
 	ctx := context.Background()
 	// 在初始上下文的基础上创建一个有取消功能的上下文
 	ctx, cancel := context.WithCancel(ctx)
-	for _, drviceName := range keys {
+	for drviceName, _ := range deviceData {
 		go func(drviceName string, domain string, ctx context.Context) {
 			var (
 				snapshot_len int32         = 1024
@@ -49,57 +51,69 @@ func AutoGetDevices() *EtherTable {
 				timeout,
 			)
 			if err != nil {
-				gologger.Errorf("pcap打开失败:%s\n", err.Error())
+				panic("pcap打开失败:" + err.Error())
 				return
 			}
 			defer handle.Close()
-			// Use the handle as a packet source to process all packets
-			packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-					packet, err := packetSource.NextPacket()
-					gologger.Printf(".")
+					var udp layers.UDP
+					var dns layers.DNS
+					var eth layers.Ethernet
+					var ipv4 layers.IPv4
+					parser := gopacket.NewDecodingLayerParser(
+						layers.LayerTypeEthernet, &eth, &ipv4, &udp, &dns)
+					var data []byte
+					var decoded []gopacket.LayerType
+					data, _, err = handle.ReadPacketData()
+					fmt.Printf("recv:%v", data)
+					if err != nil {
+						if errors.Is(pcap.NextErrorTimeoutExpired, err) {
+							continue
+						}
+						return
+					}
+					err = parser.DecodeLayers(data, &decoded)
 					if err != nil {
 						continue
 					}
-					if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
-						dns, _ := dnsLayer.(*layers.DNS)
-						if !dns.QR {
-							continue
-						}
-						for _, v := range dns.Questions {
-							if string(v.Name) == domain {
-								ethLayer := packet.Layer(layers.LayerTypeEthernet)
-								if ethLayer != nil {
-									eth := ethLayer.(*layers.Ethernet)
-									etherTable := EtherTable{
-										SrcIp:  data[drviceName],
-										Device: drviceName,
-										SrcMac: SelfMac(eth.DstMAC),
-										DstMac: SelfMac(eth.SrcMAC),
-									}
-									signal <- &etherTable
-									return
-								}
+					if !dns.QR {
+						continue
+					}
+					for _, v := range dns.Questions {
+						if string(v.Name) == domain {
+							etherTable := EtherTable{
+								SrcIp:  ipv4.DstIP,
+								Device: drviceName,
+								SrcMac: SelfMac(eth.DstMAC),
+								DstMac: SelfMac(eth.SrcMAC),
 							}
+							signal <- &etherTable
+							return
 						}
 					}
 				}
 			}
 		}(drviceName, domain, ctx)
 	}
+	index := 0
 	for {
 		select {
 		case c := <-signal:
 			cancel()
-			fmt.Print("\n")
 			return c
 		default:
-			_, _ = net.LookupHost(domain)
+			net.LookupHost(domain)
 			time.Sleep(time.Second * 1)
+			index += 1
+			if index > 60 {
+				fmt.Printf("timeout")
+				cancel()
+				return nil
+			}
 		}
 	}
 }
