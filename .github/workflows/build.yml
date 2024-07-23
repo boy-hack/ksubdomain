@@ -12,8 +12,10 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - macos-latest
+          - ubuntu-20.04
+          - macos-13
+          - macos-14
+
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v1
@@ -23,7 +25,7 @@ jobs:
 
       - name: Set up libpcap-dev
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install libpcap-dev gcc libdbus-1-dev -y
+        run: sudo apt-get install libpcap-dev gcc -y
 
       - name: Get version
         id: get_version
@@ -39,22 +41,34 @@ jobs:
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux.tar ksubdomain
-        if: matrix.os == 'ubuntu-latest'
+          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar ksubdomain
+        if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
           CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
-      - name: Build On Darwin
+      - name: Build On Darwin amd64
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin.tar ksubdomain
-        if: matrix.os == 'macos-latest'
+          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar ksubdomain
+        if: matrix.os == 'macos-13'
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+      - name: Build On Darwin arm64
+        run: |
+          go build -o ./ksubdomain ./cmd/ksubdomain/
+          chmod +x ksubdomain
+          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar ksubdomain
+        if: matrix.os == 'macos-14'
+        env:
+          GOOS: darwin
+          GOARCH: arm64
       - name: Build On Windows
         run: |
           go build -o ./ksubdomain.exe ./cmd/ksubdomain/
           tar -cvf KSubdomain-windows.tar ksubdomain.exe
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-20.04'
         env:
           GOOS: windows
           GOENABLE: 1
