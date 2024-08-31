@@ -14,7 +14,7 @@ import (
 )
 
 func AutoGetDevices() *EtherTable {
-	domain := core.RandomStr(4) + ".hacking8.com"
+	domain := core.RandomStr(4) + ".w8ay.fun"
 	devices, err := pcap.FindAllDevs()
 	if err != nil {
 		gologger.Fatalf("获取网络设备失败:%s\n", err.Error())
@@ -83,6 +83,7 @@ func AutoGetDevices() *EtherTable {
 						continue
 					}
 					for _, v := range dns.Questions {
+						fmt.Println(v)
 						if string(v.Name) == domain {
 							etherTable := EtherTable{
 								SrcIp:  ipv4.DstIP,
