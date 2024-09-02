@@ -188,6 +188,7 @@ var enumCommand = &cli.Command{
 			Writer:           writer,
 			ProcessBar:       processBar,
 			SpecialResolvers: specialDns,
+			Json:             c.Bool("json"),
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig()

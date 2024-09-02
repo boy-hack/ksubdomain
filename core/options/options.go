@@ -23,6 +23,7 @@ type Options struct {
 	Method           string             // verify模式 enum模式 test模式
 	DnsType          string             // dns类型 a ns aaaa
 	Writer           []outputter.Output // 输出结构
+	Json             bool               // json 格式输出
 	ProcessBar       processbar.ProcessBar
 	EtherInfo        *device.EtherTable  // 网卡信息
 	SpecialResolvers map[string][]string // 可针对特定域名使用的dns resolvers

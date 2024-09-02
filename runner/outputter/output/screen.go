@@ -1,6 +1,7 @@
 package output
 
 import (
+	"encoding/json"
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/runner/result"
@@ -19,23 +20,25 @@ func NewScreenOutput(onlyDomain bool) (*ScreenOutput, error) {
 	s.onlyDomain = onlyDomain
 	return s, nil
 }
-func (s *ScreenOutput) WriteDomainResult(domain result.Result) error {
-	var msg string
-	if s.onlyDomain {
-		msg = domain.Subdomain
+
+func (s *ScreenOutput) WriteDomainResult(domain result.Result, jsonFormat bool) error {
+	var msg strings.Builder
+	if jsonFormat {
+		content, err := json.Marshal(domain)
+		if err != nil {
+			return err
+		}
+		msg.Write(content)
 	} else {
+		msg.WriteString(domain.Subdomain)
 		var domains []string = []string{domain.Subdomain}
 		for _, item := range domain.Answers {
 			domains = append(domains, item)
 		}
-		msg = strings.Join(domains, " => ")
+		msg.WriteString(strings.Join(domains, " => "))
 	}
-	screenWidth := s.windowsWidth - len(msg) - 1
-	if s.windowsWidth > 0 && screenWidth > 0 {
-		gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
-	} else {
-		gologger.Silentf("\r%s\n", msg)
-	}
+
+	gologger.Silentf("\r%s\n", msg.String())
 	return nil
 }
 func (s *ScreenOutput) Close() {

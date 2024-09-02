@@ -44,6 +44,7 @@ type Runner struct {
 	fisrtloadChanel chan string // 数据加载完毕的chanel
 	startTime       time.Time
 	dnsType         layers.DNSType
+	json            bool
 }
 
 func init() {
@@ -98,6 +99,7 @@ func New(opt *options.Options) (*Runner, error) {
 	r.timeout = int64(opt.TimeOut)
 	r.fisrtloadChanel = make(chan string)
 	r.startTime = time.Now()
+	r.json = opt.Json
 	return r, nil
 }
 
