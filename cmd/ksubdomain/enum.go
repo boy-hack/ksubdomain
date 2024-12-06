@@ -3,6 +3,9 @@ package main
 import (
 	"bufio"
 	"context"
+	"math/rand"
+	"os"
+
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/dns"
 	"github.com/boy-hack/ksubdomain/core/gologger"
@@ -12,8 +15,6 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/outputter/output"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
-	"math/rand"
-	"os"
 )
 
 var enumCommand = &cli.Command{

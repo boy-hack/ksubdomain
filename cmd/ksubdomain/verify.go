@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"os"
+
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/core/options"
@@ -11,7 +13,6 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/outputter/output"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/urfave/cli/v2"
-	"os"
 )
 
 var commonFlags = []cli.Flag{
