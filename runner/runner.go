@@ -2,6 +2,12 @@ package runner
 
 import (
 	"context"
+	"math"
+	"math/rand"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/device"
 	"github.com/boy-hack/ksubdomain/core/gologger"
@@ -9,15 +15,10 @@ import (
 	"github.com/boy-hack/ksubdomain/runner/processbar"
 	"github.com/boy-hack/ksubdomain/runner/result"
 	"github.com/boy-hack/ksubdomain/runner/statusdb"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcap"
 	"github.com/phayes/freeport"
 	"go.uber.org/ratelimit"
-	"math"
-	"math/rand"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (

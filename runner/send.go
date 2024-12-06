@@ -1,15 +1,16 @@
 package runner
 
 import (
-	"github.com/boy-hack/ksubdomain/core/device"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/runner/statusdb"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"net"
 	"sync/atomic"
 	"time"
+
+	"github.com/boy-hack/ksubdomain/core/device"
+	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/runner/statusdb"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcap"
 )
 
 func (r *Runner) sendCycle() {

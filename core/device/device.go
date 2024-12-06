@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/boy-hack/ksubdomain/core"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"net"
 	"time"
+
+	"github.com/boy-hack/ksubdomain/core"
+	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcap"
 )
 
 func AutoGetDevices() *EtherTable {
@@ -52,7 +53,6 @@ func AutoGetDevices() *EtherTable {
 			)
 			if err != nil {
 				panic("pcap打开失败:" + err.Error())
-				return
 			}
 			defer handle.Close()
 			for {

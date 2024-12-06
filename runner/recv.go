@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/boy-hack/ksubdomain/runner/result"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/boy-hack/ksubdomain/runner/result"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
+	"github.com/gopacket/gopacket/pcap"
 )
 
 func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {

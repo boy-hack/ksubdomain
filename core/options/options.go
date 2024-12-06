@@ -2,14 +2,15 @@ package options
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/boy-hack/ksubdomain/core"
 	"github.com/boy-hack/ksubdomain/core/device"
 	"github.com/boy-hack/ksubdomain/core/gologger"
 	"github.com/boy-hack/ksubdomain/runner/outputter"
 	"github.com/boy-hack/ksubdomain/runner/processbar"
-	"github.com/google/gopacket/layers"
-	"strconv"
-	"strings"
+	"github.com/gopacket/gopacket/layers"
 )
 
 type Options struct {
