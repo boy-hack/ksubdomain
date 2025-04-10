@@ -3,14 +3,14 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/boy-hack/ksubdomain/core"
-	"github.com/boy-hack/ksubdomain/core/dns"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/core/options"
-	"github.com/boy-hack/ksubdomain/runner"
-	"github.com/boy-hack/ksubdomain/runner/outputter"
-	"github.com/boy-hack/ksubdomain/runner/outputter/output"
-	"github.com/boy-hack/ksubdomain/runner/processbar"
+	core2 "github.com/boy-hack/ksubdomain/pkg/core"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/core/ns"
+	"github.com/boy-hack/ksubdomain/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/pkg/runner"
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
+	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
+	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
 	"math/rand"
 	"os"
@@ -65,7 +65,7 @@ var enumCommand = &cli.Command{
 		}
 		var domains []string
 		var writer []outputter.Output
-		var processBar processbar.ProcessBar = &processbar.ScreenProcess{}
+		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
 		var err error
 		var domainTotal int = 0
 
@@ -74,7 +74,7 @@ var enumCommand = &cli.Command{
 			domains = append(domains, c.String("domain"))
 		}
 		if c.String("domainList") != "" {
-			dl, err := core.LinesInFile(c.String("domainList"))
+			dl, err := core2.LinesInFile(c.String("domainList"))
 			if err != nil {
 				gologger.Fatalf("读取domain文件失败:%s\n", err.Error())
 			}
@@ -91,7 +91,7 @@ var enumCommand = &cli.Command{
 			tmp := domains
 			domains = []string{}
 			for _, sub := range tmp {
-				if !core.IsWildCard(sub) {
+				if !core2.IsWildCard(sub) {
 					domains = append(domains, sub)
 				} else {
 					gologger.Infof("域名:%s 存在泛解析,已跳过", sub)
@@ -101,9 +101,9 @@ var enumCommand = &cli.Command{
 
 		var subdomainDict []string
 		if c.String("filename") == "" {
-			subdomainDict = core.GetDefaultSubdomainData()
+			subdomainDict = core2.GetDefaultSubdomainData()
 		} else {
-			subdomainDict, err = core.LinesInFile(c.String("filename"))
+			subdomainDict, err = core2.LinesInFile(c.String("filename"))
 			if err != nil {
 				gologger.Fatalf("打开文件:%s 错误:%s", c.String("filename"), err.Error())
 			}
@@ -112,13 +112,13 @@ var enumCommand = &cli.Command{
 		levelDict := c.String("level-dict")
 		var levelDomains []string
 		if levelDict != "" {
-			dl, err := core.LinesInFile(levelDict)
+			dl, err := core2.LinesInFile(levelDict)
 			if err != nil {
 				gologger.Fatalf("读取domain文件失败:%s,请检查--level-dict参数\n", err.Error())
 			}
 			levelDomains = dl
 		} else if c.Int("level") > 2 {
-			levelDomains = core.GetDefaultSubNextData()
+			levelDomains = core2.GetDefaultSubNextData()
 		}
 
 		render := make(chan string)
@@ -147,7 +147,7 @@ var enumCommand = &cli.Command{
 		defaultResolver := options.GetResolvers(c.String("resolvers"))
 		if c.Bool("ns") {
 			for _, domain := range domains {
-				nsServers, ips, err := dns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
+				nsServers, ips, err := ns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
 				if err != nil {
 					continue
 				}
@@ -159,7 +159,7 @@ var enumCommand = &cli.Command{
 		onlyDomain := c.Bool("only-domain")
 
 		if c.String("output") != "" {
-			fileWriter, err := output.NewFileOutput(c.String("output"), onlyDomain)
+			fileWriter, err := output2.NewFileOutput(c.String("output"), onlyDomain)
 			if err != nil {
 				gologger.Fatalf(err.Error())
 			}
@@ -169,7 +169,7 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 
-		screenWriter, err := output.NewScreenOutput(onlyDomain)
+		screenWriter, err := output2.NewScreenOutput(onlyDomain)
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
@@ -184,7 +184,6 @@ var enumCommand = &cli.Command{
 			TimeOut:          c.Int("timeout"),
 			Retry:            c.Int("retry"),
 			Method:           runner.VerifyType,
-			DnsType:          c.String("dns-type"),
 			Writer:           writer,
 			ProcessBar:       processBar,
 			SpecialResolvers: specialDns,

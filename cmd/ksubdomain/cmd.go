@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/boy-hack/ksubdomain/core/conf"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/urfave/cli/v2"
 	"os"
+
+	"github.com/boy-hack/ksubdomain/pkg/core/conf"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -16,6 +17,7 @@ func main() {
 			enumCommand,
 			verifyCommand,
 			testCommand,
+			deviceCommand,
 		},
 	}
 

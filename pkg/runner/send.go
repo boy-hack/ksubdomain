@@ -1,48 +1,59 @@
 package runner
 
 import (
-	"github.com/boy-hack/ksubdomain/core/device"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/runner/statusdb"
+	"net"
+	"runtime"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/device"
+	"github.com/boy-hack/ksubdomain/pkg/runner/statusdb"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"net"
-	"sync/atomic"
-	"time"
 )
 
-func (r *Runner) sendCycle() {
-	for domain := range r.sender {
-		r.limit.Take()
-		v, ok := r.hm.Get(domain)
-		if !ok {
-			v = statusdb.Item{
-				Domain:      domain,
-				Dns:         r.choseDns(domain),
-				Time:        time.Now(),
-				Retry:       0,
-				DomainLevel: 0,
-			}
-			r.hm.Add(domain, v)
-		} else {
-			v.Retry += 1
-			v.Time = time.Now()
-			v.Dns = r.choseDns(domain)
-			r.hm.Set(domain, v)
-		}
-		send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, r.dnsType)
-		atomic.AddUint64(&r.sendIndex, 1)
+// packetTemplateCache 缓存DNS服务器的包模板
+type packetTemplateCache struct {
+	mu      sync.RWMutex
+	entries map[string]*packetTemplate
+}
+
+// packetTemplate DNS请求包模板
+type packetTemplate struct {
+	eth   *layers.Ethernet
+	ip    *layers.IPv4
+	udp   *layers.UDP
+	opts  gopacket.SerializeOptions
+	buf   gopacket.SerializeBuffer
+	dnsip net.IP
+}
+
+func newPacketTemplateCache() *packetTemplateCache {
+	return &packetTemplateCache{
+		entries: make(map[string]*packetTemplate),
 	}
 }
-func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
+
+func (c *packetTemplateCache) getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *packetTemplate {
+	c.mu.RLock()
+	template, exists := c.entries[dnsname]
+	c.mu.RUnlock()
+
+	if exists {
+		return template
+	}
+
+	// 创建新模板
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
 		SrcMAC:       ether.SrcMac.HardwareAddr(),
 		DstMAC:       ether.DstMac.HardwareAddr(),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
-	// Our IPv4 header
+
 	ip := &layers.IPv4{
 		Version:    4,
 		IHL:        5,
@@ -57,39 +68,185 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 		SrcIP:      ether.SrcIp,
 		DstIP:      DstIp,
 	}
-	// Our UDP header
+
 	udp := &layers.UDP{
 		SrcPort: layers.UDPPort(freeport),
 		DstPort: layers.UDPPort(53),
 	}
-	// Our DNS header
-	dns := &layers.DNS{
-		ID:      dnsid,
-		QDCount: 1,
-		RD:      true, //递归查询标识
-	}
-	dns.Questions = append(dns.Questions,
-		layers.DNSQuestion{
-			Name:  []byte(domain),
-			Type:  dnsType,
-			Class: layers.DNSClassIN,
-		})
-	// Our UDP header
+
 	_ = udp.SetNetworkLayerForChecksum(ip)
-	buf := gopacket.NewSerializeBuffer()
-	err := gopacket.SerializeLayers(
-		buf,
-		gopacket.SerializeOptions{
-			ComputeChecksums: true, // automatically compute checksums
+
+	template = &packetTemplate{
+		eth:   eth,
+		ip:    ip,
+		udp:   udp,
+		dnsip: DstIp,
+		opts: gopacket.SerializeOptions{
+			ComputeChecksums: true,
 			FixLengths:       true,
 		},
-		eth, ip, udp, dns,
+		buf: gopacket.NewSerializeBuffer(),
+	}
+
+	c.mu.Lock()
+	c.entries[dnsname] = template
+	c.mu.Unlock()
+
+	return template
+}
+
+// 发送包的缓存
+var templateCache = newPacketTemplateCache()
+
+// sendCycle 实现发送域名请求的循环
+func (r *Runner) sendCycle() {
+	// 创建多个发送协程以提高吞吐量
+	workers := runtime.NumCPU() * 2
+	workChan := make(chan string, workers*2)
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	// 启动多个工作协程发送数据包
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			for domain := range workChan {
+				r.limit.Take()
+				v, ok := r.hm.Get(domain)
+				if !ok {
+					v = statusdb.Item{
+						Domain:      domain,
+						Dns:         r.choseDns(domain),
+						Time:        time.Now(),
+						Retry:       0,
+						DomainLevel: 0,
+					}
+					r.hm.Add(domain, v)
+				} else {
+					v.Retry += 1
+					v.Time = time.Now()
+					v.Dns = r.choseDns(domain)
+					r.hm.Set(domain, v)
+				}
+				send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, layers.DNSTypeA)
+				atomic.AddUint64(&r.sendIndex, 1)
+			}
+		}()
+	}
+
+	// 从发送通道接收域名，分发给工作协程
+	for domain := range r.sender {
+		workChan <- domain
+	}
+
+	close(workChan)
+	wg.Wait()
+}
+
+// send 发送单个DNS查询包
+func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
+	// 复用DNS服务器的包模板
+	template := templateCache.getOrCreate(dnsname, ether, freeport)
+
+	// 从内存池获取DNS层对象
+	dns := GlobalMemPool.GetDNS()
+	defer GlobalMemPool.PutDNS(dns)
+
+	// 设置DNS查询参数
+	dns.ID = dnsid
+	dns.QDCount = 1
+	dns.RD = true // 递归查询标识
+
+	// 从内存池获取questions切片
+	questions := GlobalMemPool.GetDNSQuestions()
+	defer GlobalMemPool.PutDNSQuestions(questions)
+
+	// 添加查询问题
+	questions = append(questions, layers.DNSQuestion{
+		Name:  []byte(domain),
+		Type:  dnsType,
+		Class: layers.DNSClassIN,
+	})
+	dns.Questions = questions
+
+	// 从内存池获取序列化缓冲区
+	buf := GlobalMemPool.GetBuffer()
+	defer GlobalMemPool.PutBuffer(buf)
+
+	// 序列化数据包
+	err := gopacket.SerializeLayers(
+		buf,
+		template.opts,
+		template.eth, template.ip, template.udp, dns,
 	)
 	if err != nil {
 		gologger.Warningf("SerializeLayers faild:%s\n", err.Error())
+		return
 	}
+
+	// 发送数据包
 	err = handle.WritePacketData(buf.Bytes())
 	if err != nil {
 		gologger.Warningf("WritePacketDate error:%s\n", err.Error())
 	}
+}
+
+// BatchSend 批量发送DNS查询
+func BatchSend(domains []string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) int {
+	if len(domains) == 0 {
+		return 0
+	}
+
+	// 获取或创建发送模板
+	template := templateCache.getOrCreate(dnsname, ether, freeport)
+
+	// 从内存池获取DNS对象和缓冲区，避免重复创建
+	dns := GlobalMemPool.GetDNS()
+	defer GlobalMemPool.PutDNS(dns)
+
+	buf := GlobalMemPool.GetBuffer()
+	defer GlobalMemPool.PutBuffer(buf)
+
+	questions := GlobalMemPool.GetDNSQuestions()
+	defer GlobalMemPool.PutDNSQuestions(questions)
+
+	count := 0
+	for _, domain := range domains {
+		// 设置DNS层参数
+		dns.ID = dnsid
+		dns.QDCount = 1
+		dns.RD = true
+
+		// 清空并添加问题
+		dns.Questions = questions[:0]
+		questions = append(questions, layers.DNSQuestion{
+			Name:  []byte(domain),
+			Type:  dnsType,
+			Class: layers.DNSClassIN,
+		})
+		dns.Questions = questions
+
+		// 清空缓冲区并序列化
+		buf.Clear()
+		err := gopacket.SerializeLayers(
+			buf,
+			template.opts,
+			template.eth, template.ip, template.udp, dns,
+		)
+		if err != nil {
+			gologger.Warningf("SerializeLayers failed:%s\n", err.Error())
+			continue
+		}
+
+		// 发送数据包
+		err = handle.WritePacketData(buf.Bytes())
+		if err != nil {
+			gologger.Warningf("WritePacketData error:%s\n", err.Error())
+			continue
+		}
+		count++
+	}
+
+	return count
 }

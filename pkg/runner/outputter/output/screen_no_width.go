@@ -1,8 +1,8 @@
 package output
 
 import (
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/runner/result"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"strings"
 )
 
