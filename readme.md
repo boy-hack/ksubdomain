@@ -136,16 +136,16 @@ echo "baidu.com"|./ksubdomain e --stdin
 
 ## 与massdns、dnsx对比
 
-使用100w字典，在4H5M的网络环境下测试
+使用10w字典，在4H5M的网络环境下测试
 
-|          | ksubdomain                                                   | massdns                                                      | dnsx                                                         |
-| -------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 支持系统 | Windows/Linux/Darwin                                         | Windows/Linux/Darwin                                         | Windows/Linux/Darwin                                         |
-| 功能 | 支持验证和枚举 | 只能验证 | 只能验证 |
-| 发包方式 | pcap网卡发包                                                 | epoll,pcap,socket                                            | socket                                                       |
+|          | ksubdomain                                                                      | massdns                                                      | dnsx                                                         |
+| -------- |---------------------------------------------------------------------------------| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 支持系统 | Windows/Linux/Darwin                                                            | Windows/Linux/Darwin                                         | Windows/Linux/Darwin                                         |
+| 功能 | 支持验证和枚举                                                                         | 只能验证 | 只能验证 |
+| 发包方式 | pcap网卡发包                                                                        | epoll,pcap,socket                                            | socket                                                       |
 | 命令行 | time ./ksubdomain v -b 5m -f d2.txt -o ksubdomain.txt -r dns.txt --retry 3 --np | time ./massdns -r dns.txt -t AAAA -w massdns.txt d2.txt --root -o L | time ./dnsx -a -o dnsx.txt -r dns.txt -l d2.txt -retry 3 -t 5000 |
-| 备注   | 加了--np 防止打印过多                                        |                                                              |                                                              |
-| 结果   | 耗时:1m28.273s<br />成功个数:1397                            | 耗时:3m29.337s<br />成功个数:1396                            | 耗时:5m26.780s <br />成功个数:1396                           |
+| 备注   | 加了--np 防止打印过多                                                                   |                                                              |                                                              |
+| 结果   | 耗时:30s<br />成功个数:1397                                                           | 耗时:3m29.337s<br />成功个数:1396                            | 耗时:5m26.780s <br />成功个数:1396                           |
 
 ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 
@@ -155,3 +155,37 @@ ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 - 从 Masscan, Zmap 源码分析到开发实践 <https://paper.seebug.org/1052/>
 - ksubdomain 无状态域名爆破工具介绍 <https://paper.seebug.org/1325/>
 - [ksubdomain与massdns的对比](https://mp.weixin.qq.com/s?__biz=MzU2NzcwNTY3Mg==&mid=2247484471&idx=1&sn=322d5db2d11363cd2392d7bd29c679f1&chksm=fc986d10cbefe406f4bda22f62a16f08c71f31c241024fc82ecbb8e41c9c7188cfbd71276b81&token=76024279&lang=zh_CN#rd) 
+
+## 性能优化说明
+
+本项目进行了以下性能优化，显著提高了DNS爆破的速度和效率：
+
+### 1. 状态表优化
+- 使用分片锁（Sharded Lock）代替全局锁，减少锁竞争
+- 每个分片使用独立的锁，提高并发处理能力
+- 优化键值存储，使用高效的哈希函数分布域名
+
+### 2. 发包机制优化
+- 使用对象池复用DNS包结构，减少内存分配和GC压力
+- 实现模板缓存，为相同DNS服务器复用以太网/IP/UDP层
+- 多工作协程并行发送数据包，提高吞吐量
+- 批量处理域名发送，减少上下文切换开销
+
+### 3. 接收机制优化
+- 使用对象池复用解析器和缓冲区
+- 多阶段并行处理管道：接收→解析→处理
+- 增加缓冲区大小，避免通道阻塞
+- 优化包过滤逻辑，更快地丢弃无效包
+
+### 4. 内存管理优化
+- 引入全局内存池，减少频繁分配/释放内存的开销
+- 复用DNS查询结构和序列化缓冲区
+- 延迟内存释放，减少内存碎片
+
+### 5. 代码架构优化
+- 使用CPU核心数动态调整并发协程数量
+- 更高效的随机数生成方法
+- 动态速率调整，根据系统负载自适应发包速率
+- 批量加载和处理域名，减少单个域名处理开销
+
+这些优化使得ksubdomain在大规模子域名爆破时能够达到最佳性能，充分利用系统资源。

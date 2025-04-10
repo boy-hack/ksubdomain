@@ -1,4 +1,4 @@
-package dns
+package ns
 
 import "testing"
 

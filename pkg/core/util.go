@@ -2,13 +2,13 @@ package core
 
 import (
 	"bufio"
-	"bytes"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"math/rand"
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func RandomStr(n int) string {
@@ -53,33 +53,42 @@ func LinesReaderInFile(filename string) (int, error) {
 		return 0, err
 	}
 	defer f.Close()
-	r := bufio.NewReader(f)
-	var readSize int
-	var count int
-	buf := make([]byte, 1024)
+
+	// 使用更大的缓冲区减少IO操作
+	buf := make([]byte, 32*1024)
+	count := 0
 
 	for {
-		readSize, err = r.Read(buf)
-		if err != nil {
+		readSize, err := f.Read(buf)
+		if readSize == 0 {
 			break
 		}
-		var buffPosition int
-		for {
-			i := bytes.IndexByte(buf[buffPosition:], '\n')
-			if i == -1 || readSize == buffPosition {
-				break
+
+		// 直接遍历缓冲区计数换行符
+		for i := 0; i < readSize; i++ {
+			if buf[i] == '\n' {
+				count++
 			}
-			buffPosition += i + 1
-			count++
+		}
+
+		if err != nil {
+			if err == io.EOF {
+				// 处理文件末尾没有换行符的情况
+				if readSize > 0 && (count == 0 || buf[readSize-1] != '\n') {
+					count++
+				}
+				return count, nil
+			}
+			return count, err
 		}
 	}
-	if readSize > 0 && count == 0 || count > 0 {
-		count++
+
+	// 处理空文件或只有一行没有换行符的文件
+	if count == 0 {
+		count = 1
 	}
-	if err == io.EOF {
-		return count, nil
-	}
-	return count, err
+
+	return count, nil
 }
 
 func FileExists(path string) bool {

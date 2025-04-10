@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/boy-hack/ksubdomain/core"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/core/options"
-	"github.com/boy-hack/ksubdomain/runner"
-	"github.com/boy-hack/ksubdomain/runner/outputter"
-	"github.com/boy-hack/ksubdomain/runner/outputter/output"
-	"github.com/boy-hack/ksubdomain/runner/processbar"
+	"github.com/boy-hack/ksubdomain/pkg/core"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/pkg/runner"
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
+	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
+	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
 	"os"
 )
@@ -101,7 +101,7 @@ var verifyCommand = &cli.Command{
 		}
 		var domains []string
 		var writer []outputter.Output
-		var processBar processbar.ProcessBar = &processbar.ScreenProcess{}
+		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
 		if c.String("domain") != "" {
 			domains = append(domains, c.String("domain"))
 		}
@@ -143,7 +143,7 @@ var verifyCommand = &cli.Command{
 
 		onlyDomain := c.Bool("only-domain")
 		if c.String("output") != "" {
-			fileWriter, err := output.NewFileOutput(c.String("output"), onlyDomain)
+			fileWriter, err := output2.NewFileOutput(c.String("output"), onlyDomain)
 			if err != nil {
 				gologger.Fatalf(err.Error())
 			}
@@ -152,7 +152,7 @@ var verifyCommand = &cli.Command{
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		screenWriter, err := output.NewScreenOutput(onlyDomain)
+		screenWriter, err := output2.NewScreenOutput(onlyDomain)
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
@@ -167,7 +167,6 @@ var verifyCommand = &cli.Command{
 			TimeOut:     c.Int("timeout"),
 			Retry:       c.Int("retry"),
 			Method:      runner.VerifyType,
-			DnsType:     c.String("dns-type"),
 			Writer:      writer,
 			ProcessBar:  processBar,
 		}

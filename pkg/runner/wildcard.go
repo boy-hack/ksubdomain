@@ -2,7 +2,7 @@ package runner
 
 import (
 	"fmt"
-	"github.com/boy-hack/ksubdomain/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"math"
 	"sort"
 	"strconv"

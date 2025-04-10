@@ -2,14 +2,15 @@ package options
 
 import (
 	"fmt"
-	"github.com/boy-hack/ksubdomain/core"
-	"github.com/boy-hack/ksubdomain/core/device"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/runner/outputter"
-	"github.com/boy-hack/ksubdomain/runner/processbar"
-	"github.com/google/gopacket/layers"
+	device2 "github.com/boy-hack/ksubdomain/pkg/device"
 	"strconv"
 	"strings"
+
+	core2 "github.com/boy-hack/ksubdomain/pkg/core"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
+	"github.com/boy-hack/ksubdomain/pkg/runner/processbar"
+	"github.com/google/gopacket/layers"
 )
 
 type Options struct {
@@ -21,10 +22,9 @@ type Options struct {
 	TimeOut          int                // 超时时间 单位(秒)
 	Retry            int                // 最大重试次数
 	Method           string             // verify模式 enum模式 test模式
-	DnsType          string             // dns类型 a ns aaaa
 	Writer           []outputter.Output // 输出结构
 	ProcessBar       processbar.ProcessBar
-	EtherInfo        *device.EtherTable  // 网卡信息
+	EtherInfo        *device2.EtherTable // 网卡信息
 	SpecialResolvers map[string][]string // 可针对特定域名使用的dns resolvers
 }
 
@@ -56,7 +56,7 @@ func GetResolvers(resolvers string) []string {
 	var rs []string
 	var err error
 	if resolvers != "" {
-		rs, err = core.LinesInFile(resolvers)
+		rs, err = core2.LinesInFile(resolvers)
 		if err != nil {
 			gologger.Fatalf("读取resolvers文件失败:%s\n", err.Error())
 		}
@@ -67,6 +67,9 @@ func GetResolvers(resolvers string) []string {
 		defaultDns := []string{
 			"1.1.1.1",
 			"8.8.8.8",
+			"180.76.76.76", //百度公共 DNS
+			"180.184.1.1",  //火山引擎
+			"180.184.2.2",
 		}
 		rs = defaultDns
 	}
@@ -78,7 +81,7 @@ func (opt *Options) Check() {
 		gologger.MaxLevel = gologger.Silent
 	}
 
-	core.ShowBanner()
+	core2.ShowBanner()
 
 }
 func DnsType(s string) (layers.DNSType, error) {
@@ -99,30 +102,4 @@ func DnsType(s string) (layers.DNSType, error) {
 	default:
 		return layers.DNSTypeA, fmt.Errorf("无法将%s转换为DNSType类型", s)
 	}
-}
-func GetDeviceConfig() *device.EtherTable {
-	filename := "ksubdomain.yaml"
-	var ether *device.EtherTable
-	var err error
-	if core.FileExists(filename) {
-		ether, err = device.ReadConfig(filename)
-		if err != nil {
-			gologger.Fatalf("读取配置失败:%v", err)
-		}
-		gologger.Infof("读取配置%s成功!\n", filename)
-	} else {
-		ether = device.AutoGetDevices()
-		if ether == nil {
-			gologger.Fatalf("自动获取网卡信息失败")
-		}
-		err = ether.SaveConfig(filename)
-		if err != nil {
-			gologger.Fatalf("保存配置失败:%v", err)
-		}
-	}
-	gologger.Infof("Use Device: %s\n", ether.Device)
-	gologger.Infof("Use IP:%s\n", ether.SrcIp.String())
-	gologger.Infof("Local Mac: %s\n", ether.SrcMac.String())
-	gologger.Infof("GateWay Mac: %s\n", ether.DstMac.String())
-	return ether
 }

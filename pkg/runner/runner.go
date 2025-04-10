@@ -2,22 +2,23 @@ package runner
 
 import (
 	"context"
-	"github.com/boy-hack/ksubdomain/core"
-	"github.com/boy-hack/ksubdomain/core/device"
-	"github.com/boy-hack/ksubdomain/core/gologger"
-	"github.com/boy-hack/ksubdomain/core/options"
-	"github.com/boy-hack/ksubdomain/runner/processbar"
-	"github.com/boy-hack/ksubdomain/runner/result"
-	"github.com/boy-hack/ksubdomain/runner/statusdb"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
-	"github.com/phayes/freeport"
-	"go.uber.org/ratelimit"
 	"math"
 	"math/rand"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/boy-hack/ksubdomain/pkg/core"
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/pkg/device"
+	"github.com/boy-hack/ksubdomain/pkg/runner/processbar"
+	"github.com/boy-hack/ksubdomain/pkg/runner/result"
+	"github.com/boy-hack/ksubdomain/pkg/runner/statusdb"
+	"github.com/google/gopacket/pcap"
+	"github.com/phayes/freeport"
+	"go.uber.org/ratelimit"
 )
 
 const (
@@ -38,17 +39,19 @@ type Runner struct {
 	sender          chan string
 	recver          chan result.Result
 	freeport        int
-	dnsid           uint16      // dnsid 用于接收的确定ID
-	maxRetry        int         // 最大重试次数
-	timeout         int64       // 超时xx秒后重试
-	fisrtloadChanel chan string // 数据加载完毕的chanel
+	dnsid           uint16
+	maxRetry        int
+	timeout         int64
+	fisrtloadChanel chan string
 	startTime       time.Time
-	dnsType         layers.DNSType
+	stopSignal      chan struct{}
+	workerWg        sync.WaitGroup
 }
 
 func init() {
-	rand.Seed(time.Now().Unix())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 }
+
 func New(opt *options.Options) (*Runner, error) {
 	var err error
 	version := pcap.Version()
@@ -59,7 +62,7 @@ func New(opt *options.Options) (*Runner, error) {
 	gologger.Infof("Default DNS:%s\n", core.SliceToString(opt.Resolvers))
 	if len(opt.SpecialResolvers) > 0 {
 		var keys []string
-		for k, _ := range opt.SpecialResolvers {
+		for k := range opt.SpecialResolvers {
 			keys = append(keys, k)
 		}
 		gologger.Infof("Special DNS:%s\n", core.SliceToString(keys))
@@ -69,31 +72,31 @@ func New(opt *options.Options) (*Runner, error) {
 		return nil, err
 	}
 
-	// 根据发包总数和timeout时间来分配每秒速度
 	allPacket := opt.DomainTotal
-	calcLimit := float64(allPacket/opt.TimeOut) * 0.85
+	calcLimit := float64(allPacket/opt.TimeOut) * 0.9
+	cpuLimit := float64(runtime.NumCPU() * 10000)
+	if calcLimit > cpuLimit {
+		calcLimit = cpuLimit
+	}
 	if calcLimit < 5000 {
 		calcLimit = 5000
 	}
 	limit := int(math.Min(calcLimit, float64(opt.Rate)))
-	r.limit = ratelimit.New(limit) // per second
+	r.limit = ratelimit.New(limit)
 	gologger.Infof("Domain Count:%d\n", r.options.DomainTotal)
 	gologger.Infof("Rate:%dpps\n", limit)
 
-	r.sender = make(chan string, 99)        // 协程发送缓冲
-	r.recver = make(chan result.Result, 99) // 协程接收缓冲
+	r.sender = make(chan string, 50000)
+	r.recver = make(chan result.Result, 5000)
+	r.stopSignal = make(chan struct{})
 
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
-	r.dnsType, err = options.DnsType(opt.DnsType)
-	if err != nil {
-		return nil, err
-	}
 	r.freeport = freePort
 	gologger.Infof("FreePort:%d\n", freePort)
-	r.dnsid = 0x2021 // set dnsid 65500
+	r.dnsid = 0x2021
 	r.maxRetry = opt.Retry
 	r.timeout = int64(opt.TimeOut)
 	r.fisrtloadChanel = make(chan string)
@@ -101,11 +104,13 @@ func New(opt *options.Options) (*Runner, error) {
 	return r, nil
 }
 
+// choseDns 智能选择DNS服务器
 func (r *Runner) choseDns(domain string) string {
 	dns := r.options.Resolvers
 	specialDns := r.options.SpecialResolvers
-	var selectDns string
-	if specialDns != nil && len(specialDns) > 0 {
+
+	// 根据域名后缀选择特定DNS服务器
+	if len(specialDns) > 0 {
 		for k, v := range specialDns {
 			if strings.HasSuffix(domain, k) {
 				dns = v
@@ -113,8 +118,14 @@ func (r *Runner) choseDns(domain string) string {
 			}
 		}
 	}
-	selectDns = dns[rand.Intn(len(dns))]
-	return selectDns
+
+	// 随机选择DNS服务器
+	idx := fastrand() % len(dns)
+	return dns[idx]
+}
+
+func fastrand() int {
+	return int(rand.Int31())
 }
 
 func (r *Runner) printStatus() {
@@ -132,22 +143,38 @@ func (r *Runner) printStatus() {
 		r.options.ProcessBar.WriteData(data)
 	}
 }
+
 func (r *Runner) RunEnumeration(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wg := &sync.WaitGroup{}
 	wg.Add(3)
-	go r.recvChanel(ctx, wg) // 启动接收线程
-	go r.sendCycle()         // 发送线程
-	go r.handleResult()      // 处理结果，打印输出
+	// 接收线程
+	go r.recvChanel(ctx, wg)
+	// 发送线程
+	go r.sendCycle()
+	// 处理结果
+	go r.handleResult()
+	// 加载域名
 	go func() {
 		defer wg.Done()
+		batchSize := 1000
+		batch := make([]string, 0, batchSize)
 		for domain := range r.options.Domain {
-			r.sender <- domain
+			batch = append(batch, domain)
+			if len(batch) >= batchSize {
+				for _, d := range batch {
+					r.sender <- d
+				}
+				batch = batch[:0]
+			}
+		}
+		for _, d := range batch {
+			r.sender <- d
 		}
 		r.fisrtloadChanel <- "ok"
 	}()
-	var isLoadOver bool = false // 是否加载文件完毕
+	var isLoadOver bool = false
 	t := time.NewTicker(1 * time.Second)
 	defer t.Stop()
 	go func() {
@@ -165,7 +192,7 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 					}
 				}
 			case <-r.fisrtloadChanel:
-				go r.retry(ctx) // 遍历hm，依次重试
+				go r.retry(ctx)
 				isLoadOver = true
 			case <-ctx.Done():
 				return
@@ -175,12 +202,15 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 	wg.Wait()
 	close(r.recver)
 	close(r.sender)
-
 }
 
 func (r *Runner) Close() {
-	r.handle.Close()
-	r.hm.Close()
+	if r.handle != nil {
+		r.handle.Close()
+	}
+	if r.hm != nil {
+		r.hm.Close()
+	}
 	if r.options.ProcessBar != nil {
 		r.options.ProcessBar.Close()
 	}

@@ -1,7 +1,5 @@
 package privileges
 
-var IsPrivileged bool
-
-func init() {
-	IsPrivileged = isPrivileged()
+func IsPrivileged() bool {
+	return isPrivileged()
 }
