@@ -33,8 +33,8 @@ func (d *SelfMac) UnmarshalYAML(value *yaml.Node) error {
 
 // 打印设备信息
 func PrintDeviceInfo(ether *EtherTable) {
-	gologger.Infof("使用网卡: %s\n", ether.Device)
-	gologger.Infof("IP地址: %s\n", ether.SrcIp.String())
-	gologger.Infof("本地MAC: %s\n", ether.SrcMac.String())
-	gologger.Infof("网关MAC: %s\n", ether.DstMac.String())
+	gologger.Infof("Device: %s\n", ether.Device)
+	gologger.Infof("IP: %s\n", ether.SrcIp.String())
+	gologger.Infof("Local Mac: %s\n", ether.SrcMac.String())
+	gologger.Infof("Gateway Mac: %s\n", ether.DstMac.String())
 }

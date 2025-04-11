@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/pkg/runner"
@@ -119,16 +118,7 @@ var verifyCommand = &cli.Command{
 				domains = append(domains, scanner.Text())
 			}
 		}
-		var total int = 0
-		total += len(domains)
 		render := make(chan string)
-		if c.String("filename") != "" {
-			t, err := core.LinesReaderInFile(c.String("filename"))
-			if err != nil {
-				gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
-			}
-			total += t
-		}
 		// 读取文件
 		go func() {
 			for _, line := range domains {
@@ -186,7 +176,6 @@ var verifyCommand = &cli.Command{
 		opt := &options.Options{
 			Rate:               options.Band2Rate(c.String("band")),
 			Domain:             render,
-			DomainTotal:        total,
 			Resolvers:          options.GetResolvers(c.StringSlice("resolvers")),
 			Silent:             c.Bool("silent"),
 			TimeOut:            c.Int("timeout"),

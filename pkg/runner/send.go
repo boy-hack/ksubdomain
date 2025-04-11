@@ -3,6 +3,7 @@ package runner
 import (
 	"net"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -101,7 +102,7 @@ var templateCache = newPacketTemplateCache()
 // sendCycle 实现发送域名请求的循环
 func (r *Runner) sendCycle() {
 	// 创建多个发送协程以提高吞吐量
-	workers := runtime.NumCPU() * 4
+	workers := runtime.NumCPU() * 2
 	workChan := make(chan string, workers)
 
 	var wg sync.WaitGroup
@@ -187,7 +188,13 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 
 	// 发送数据包
 	err = handle.WritePacketData(buf.Bytes())
-	if err != nil {
-		gologger.Warningf("WritePacketDate error:%s\n", err.Error())
+	if err == nil {
+		return
 	}
+	// 如果是缓冲区错误，等待一段时间后重试
+	if strings.Contains(err.Error(), "No buffer space available") {
+		time.Sleep(time.Millisecond * 10)
+		return
+	}
+	gologger.Warningf("WritePacketDate error:%s\n", err.Error())
 }

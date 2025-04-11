@@ -42,7 +42,6 @@ var enumCommand = &cli.Command{
 		var domains []string
 		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
 		var err error
-		var domainTotal int = 0
 
 		// handle domain
 		if c.StringSlice("domain") != nil {
@@ -67,27 +66,34 @@ var enumCommand = &cli.Command{
 			}
 		}
 
-		var subdomainDict []string
-		if c.String("filename") == "" {
-			subdomainDict = core2.GetDefaultSubdomainData()
-		} else {
-			subdomainDict, err = core2.LinesInFile(c.String("filename"))
-			if err != nil {
-				gologger.Fatalf("打开文件:%s 错误:%s", c.String("filename"), err.Error())
-			}
-		}
 		render := make(chan string)
 		go func() {
 			defer close(render)
-			for _, sub := range subdomainDict {
+			filename := c.String("filename")
+			if filename == "" {
+				subdomainDict := core2.GetDefaultSubdomainData()
 				for _, domain := range domains {
-					dd := sub + "." + domain
-					render <- dd
+					for _, sub := range subdomainDict {
+						dd := sub + "." + domain
+						render <- dd
+					}
+				}
+			} else {
+				f2, err := os.Open(filename)
+				if err != nil {
+					gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+				}
+				defer f2.Close()
+				iofile := bufio.NewScanner(f2)
+				iofile.Split(bufio.ScanLines)
+				for iofile.Scan() {
+					sub := iofile.Text()
+					for _, domain := range domains {
+						render <- sub + "." + domain
+					}
 				}
 			}
 		}()
-		domainTotal = len(subdomainDict) * len(domains)
-
 		// 取域名的dns,加入到resolver中
 		specialDns := make(map[string][]string)
 		defaultResolver := options.GetResolvers(c.StringSlice("resolvers"))
@@ -144,7 +150,6 @@ var enumCommand = &cli.Command{
 		opt := &options.Options{
 			Rate:               options.Band2Rate(c.String("band")),
 			Domain:             render,
-			DomainTotal:        domainTotal,
 			Resolvers:          defaultResolver,
 			Silent:             c.Bool("silent"),
 			TimeOut:            c.Int("timeout"),
