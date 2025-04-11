@@ -23,13 +23,17 @@ jobs:
           go-version: 1.23
         id: go
 
-      - name: Set up dependencies
+      - name: Set up dependencies on Ubuntu
         if: matrix.os == 'ubuntu-20.04'
-        run: sudo apt-get install libpcap-dev gcc zip -y
+        run: sudo apt-get update && sudo apt-get install libpcap-dev gcc zip -y
+
+      - name: Install zip on macOS
+        if: runner.os == 'macOS'
+        run: brew install zip
 
       - name: Get version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
