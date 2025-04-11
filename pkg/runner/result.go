@@ -2,7 +2,7 @@ package runner
 
 import (
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/pkg/core/predict"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 )
 
@@ -18,7 +18,7 @@ func (r *Runner) handleResult() {
 		// 当缓冲区足够大或接收完毕时，进行泛解析过滤
 		if len(bufferedResults) >= 1000 {
 			// 处理当前批次的结果
-			processBufferedResults(r, bufferedResults)
+			r.processBufferedResults(bufferedResults)
 			// 清空缓冲区
 			bufferedResults = []result.Result{}
 		}
@@ -26,44 +26,63 @@ func (r *Runner) handleResult() {
 
 	// 处理最后剩余的结果
 	if len(bufferedResults) > 0 {
-		processBufferedResults(r, bufferedResults)
+		r.processBufferedResults(bufferedResults)
 	}
 }
 
 // processBufferedResults 处理缓冲的结果
-func processBufferedResults(r *Runner, results []result.Result) {
-	// 根据泛解析过滤选项处理结果
-	var filteredResults []result.Result
-
-	if r.options.Method == options.EnumType && len(results) > 0 {
-		// 枚举模式下才应用泛解析过滤
-		wildFilterMode := r.options.WildcardFilterMode
-
-		switch wildFilterMode {
-		case "advanced":
-			gologger.Debugf("使用高级泛解析过滤处理 %d 个结果...", len(results))
-			filteredResults = FilterWildCardAdvanced(results)
-		case "basic":
-			gologger.Debugf("使用基础泛解析过滤处理 %d 个结果...", len(results))
-			filteredResults = FilterWildCard(results)
-		case "none":
-			gologger.Debugf("跳过泛解析过滤，共 %d 个结果", len(results))
-			filteredResults = results
-		default:
-			// 默认使用基础过滤
-			gologger.Debugf("使用默认泛解析过滤处理 %d 个结果...", len(results))
-			filteredResults = FilterWildCard(results)
-		}
-	} else {
-		// 非枚举模式不过滤泛解析
-		filteredResults = results
-	}
-
+func (r *Runner) processBufferedResults(results []result.Result) {
 	// 输出过滤后的结果
-	for _, res := range filteredResults {
+	isWildCard := r.options.WildcardFilterMode != "none"
+	for _, res := range results {
+		if isWildCard {
+			if checkWildIps(r.options.WildIps, res.Answers) {
+				continue
+			}
+		}
 		for _, out := range r.options.Writer {
 			_ = out.WriteDomainResult(res)
 		}
 		r.printStatus()
 	}
+	if r.options.Predict {
+		err := r.predict(results)
+		if err != nil {
+			gologger.Errorf("predict failed: %v", err)
+		}
+	}
+}
+
+type predictWrite struct {
+	sender chan string
+}
+
+func (o *predictWrite) Write(p []byte) (n int, err error) {
+	domain := string(p)
+	o.sender <- domain
+	return len(p), nil
+}
+
+func (r *Runner) predict(ress []result.Result) error {
+	buf := predictWrite{
+		sender: r.sender,
+	}
+	for _, res := range ress {
+		_, err := predict.PredictDomains(res.Subdomain, &buf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkWildIps(wildIps []string, ip []string) bool {
+	for _, w := range wildIps {
+		for _, i := range ip {
+			if w == i {
+				return true
+			}
+		}
+	}
+	return false
 }

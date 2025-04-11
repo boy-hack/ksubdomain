@@ -30,12 +30,6 @@ var enumCommand = &cli.Command{
 			Value:    "",
 		},
 		&cli.BoolFlag{
-			Name:  "filter-wild",
-			Usage: "过滤泛解析域名",
-			Value: false,
-		},
-
-		&cli.BoolFlag{
 			Name:  "ns",
 			Usage: "读取域名ns记录并加入到ns解析器中",
 			Value: false,
@@ -61,15 +55,14 @@ var enumCommand = &cli.Command{
 				domains = append(domains, scanner.Text())
 			}
 		}
-		if c.Bool("skip-wild") {
-			tmp := domains
-			domains = []string{}
-			for _, sub := range tmp {
-				isWild, _ := core2.IsWildCard(sub)
-				if !isWild {
-					domains = append(domains, sub)
-				} else {
-					gologger.Infof("域名:%s 存在泛解析,已跳过", sub)
+
+		wildIPS := make([]string, 0)
+		if c.String("wild-filter-mode") != "none" {
+			for _, sub := range domains {
+				ok, ips := runner.IsWildCard(sub)
+				if ok {
+					wildIPS = append(wildIPS, ips...)
+					gologger.Infof("发现泛解析域名:%s", sub)
 				}
 			}
 		}
@@ -168,6 +161,8 @@ var enumCommand = &cli.Command{
 			ProcessBar:         processBar,
 			SpecialResolvers:   specialDns,
 			WildcardFilterMode: c.String("wild-filter-mode"),
+			WildIps:            wildIPS,
+			Predict:            c.Bool("predict"),
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig(c.String("eth"))

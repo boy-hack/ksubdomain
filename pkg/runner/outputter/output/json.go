@@ -2,9 +2,11 @@ package output
 
 import (
 	"encoding/json"
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
-	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"os"
+
+	"github.com/boy-hack/ksubdomain/pkg/runner/result"
+
+	"github.com/boy-hack/ksubdomain/pkg/utils"
 )
 
 type JsonOutPut struct {
@@ -30,11 +32,14 @@ func (f *JsonOutPut) Close() {
 }
 
 func (f *JsonOutPut) Finally() error {
-	results := outputter.WildFilterOutputResult(f.wildFilterMode, f.domains)
-	v, err := json.Marshal(results)
-	if err != nil {
+	if len(f.domains) > 0 {
+		results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
+		jsonBytes, err := json.Marshal(results)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(f.filename, jsonBytes, 0664)
 		return err
 	}
-	err = os.WriteFile(f.filename, v, 0664)
-	return err
+	return nil
 }

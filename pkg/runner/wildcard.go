@@ -1,6 +1,8 @@
 package runner
 
 import (
+	"github.com/boy-hack/ksubdomain/pkg/core"
+	"net"
 	"sort"
 	"strings"
 
@@ -352,4 +354,24 @@ func FilterWildCardAdvanced(results []result.Result) []result.Result {
 		totalDomains, len(filteredResults))
 
 	return filteredResults
+}
+
+func IsWildCard(domain string) (bool, []string) {
+	var ret []string
+	for i := 0; i < 4; i++ {
+		subdomain := core.RandomStr(6) + "." + domain
+		ips, err := net.LookupIP(subdomain)
+		if err != nil {
+			continue
+		}
+		for _, ip := range ips {
+			if ip.To4() != nil {
+				ret = append(ret, ip.String())
+			}
+		}
+	}
+	if len(ret) == 0 {
+		return true, nil
+	}
+	return false, ret
 }

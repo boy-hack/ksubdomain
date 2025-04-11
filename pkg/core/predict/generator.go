@@ -125,7 +125,7 @@ func (dg *DomainGenerator) processPattern(pattern string, replacements map[strin
 	if startIdx == -1 {
 		// 没有更多标签，输出最终结果
 		if pattern != "" {
-			fmt.Fprintln(dg.output, pattern)
+			fmt.Fprint(dg.output, pattern)
 			dg.count++
 		}
 		return

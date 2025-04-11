@@ -4,8 +4,8 @@ import (
 	"encoding/csv"
 	"os"
 
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
+	"github.com/boy-hack/ksubdomain/pkg/utils"
 )
 
 type CsvOutput struct {
@@ -31,7 +31,7 @@ func (f *CsvOutput) Close() {
 }
 
 func (f *CsvOutput) Finally() error {
-	results := outputter.WildFilterOutputResult(f.wildFilterMode, f.domains)
+	results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
 
 	// 创建CSV文件
 	file, err := os.Create(f.filename)

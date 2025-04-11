@@ -3,17 +3,15 @@ package main
 import (
 	"bufio"
 	"context"
-	"os"
-
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
-
 	"github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/pkg/runner"
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
 	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
 	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
+	"os"
 )
 
 var commonFlags = []cli.Flag{
@@ -84,6 +82,11 @@ var commonFlags = []cli.Flag{
 		Name:  "wild-filter-mode",
 		Usage: "泛解析过滤模式[从最终结果过滤泛解析域名]: basic(基础), advanced(高级), none(不过滤)",
 		Value: "none",
+	},
+	&cli.BoolFlag{
+		Name:     "predict",
+		Usage:    "启用预测域名模式",
+		Required: false,
 	},
 }
 
@@ -179,19 +182,21 @@ var verifyCommand = &cli.Command{
 		}
 
 		opt := &options.Options{
-			Rate:        options.Band2Rate(c.String("band")),
-			Domain:      render,
-			DomainTotal: total,
-			Resolvers:   options.GetResolvers(c.StringSlice("resolvers")),
-			Silent:      c.Bool("silent"),
-			TimeOut:     c.Int("timeout"),
-			Retry:       c.Int("retry"),
-			Method:      options.VerifyType,
-			Writer:      writer,
-			ProcessBar:  processBar,
+			Rate:               options.Band2Rate(c.String("band")),
+			Domain:             render,
+			DomainTotal:        total,
+			Resolvers:          options.GetResolvers(c.StringSlice("resolvers")),
+			Silent:             c.Bool("silent"),
+			TimeOut:            c.Int("timeout"),
+			Retry:              c.Int("retry"),
+			Method:             options.VerifyType,
+			Writer:             writer,
+			ProcessBar:         processBar,
+			EtherInfo:          options.GetDeviceConfig(c.String("eth")),
+			WildcardFilterMode: c.String("wild-filter-mode"),
+			Predict:            c.Bool("predict"),
 		}
 		opt.Check()
-		opt.EtherInfo = options.GetDeviceConfig(c.String("eth"))
 		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {

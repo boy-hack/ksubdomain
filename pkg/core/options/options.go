@@ -36,6 +36,8 @@ type Options struct {
 	EtherInfo          *device2.EtherTable // 网卡信息
 	SpecialResolvers   map[string][]string // 可针对特定域名使用的dns resolvers
 	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
+	WildIps            []string
+	Predict            bool // 是否开启预测模式
 }
 
 func Band2Rate(bandWith string) int64 {
