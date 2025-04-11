@@ -2,9 +2,10 @@ package options
 
 import (
 	"fmt"
-	device2 "github.com/boy-hack/ksubdomain/pkg/device"
 	"strconv"
 	"strings"
+
+	device2 "github.com/boy-hack/ksubdomain/pkg/device"
 
 	core2 "github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
@@ -13,19 +14,28 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+type OptionMethod string
+
+const (
+	VerifyType OptionMethod = "verify"
+	EnumType   OptionMethod = "enum"
+	TestType   OptionMethod = "test"
+)
+
 type Options struct {
-	Rate             int64              // 每秒发包速率
-	Domain           chan string        // 域名输入
-	DomainTotal      int                // 扫描域名总数
-	Resolvers        []string           // dns resolvers
-	Silent           bool               // 安静模式
-	TimeOut          int                // 超时时间 单位(秒)
-	Retry            int                // 最大重试次数
-	Method           string             // verify模式 enum模式 test模式
-	Writer           []outputter.Output // 输出结构
-	ProcessBar       processbar.ProcessBar
-	EtherInfo        *device2.EtherTable // 网卡信息
-	SpecialResolvers map[string][]string // 可针对特定域名使用的dns resolvers
+	Rate               int64              // 每秒发包速率
+	Domain             chan string        // 域名输入
+	DomainTotal        int                // 扫描域名总数
+	Resolvers          []string           // dns resolvers
+	Silent             bool               // 安静模式
+	TimeOut            int                // 超时时间 单位(秒)
+	Retry              int                // 最大重试次数
+	Method             OptionMethod       // verify模式 enum模式 test模式
+	Writer             []outputter.Output // 输出结构
+	ProcessBar         processbar.ProcessBar
+	EtherInfo          *device2.EtherTable // 网卡信息
+	SpecialResolvers   map[string][]string // 可针对特定域名使用的dns resolvers
+	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
 }
 
 func Band2Rate(bandWith string) int64 {
@@ -51,17 +61,12 @@ func Band2Rate(bandWith string) int64 {
 	rate = rate / packSize
 	return rate
 }
-func GetResolvers(resolvers string) []string {
+func GetResolvers(resolvers []string) []string {
 	// handle resolver
 	var rs []string
-	var err error
-	if resolvers != "" {
-		rs, err = core2.LinesInFile(resolvers)
-		if err != nil {
-			gologger.Fatalf("读取resolvers文件失败:%s\n", err.Error())
-		}
-		if len(rs) == 0 {
-			gologger.Fatalf("resolvers文件内容为空\n")
+	if resolvers != nil {
+		for _, resolver := range resolvers {
+			rs = append(rs, resolver)
 		}
 	} else {
 		defaultDns := []string{
@@ -75,6 +80,7 @@ func GetResolvers(resolvers string) []string {
 	}
 	return rs
 }
+
 func (opt *Options) Check() {
 
 	if opt.Silent {

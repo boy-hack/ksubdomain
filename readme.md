@@ -156,10 +156,8 @@ ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 - ksubdomain 无状态域名爆破工具介绍 <https://paper.seebug.org/1325/>
 - [ksubdomain与massdns的对比](https://mp.weixin.qq.com/s?__biz=MzU2NzcwNTY3Mg==&mid=2247484471&idx=1&sn=322d5db2d11363cd2392d7bd29c679f1&chksm=fc986d10cbefe406f4bda22f62a16f08c71f31c241024fc82ecbb8e41c9c7188cfbd71276b81&token=76024279&lang=zh_CN#rd) 
 
-## 性能优化说明
-
-本项目进行了以下性能优化，显著提高了DNS爆破的速度和效率：
-
+## 2.0更新
+显著提高了DNS爆破的速度和效率：
 ### 1. 状态表优化
 - 使用分片锁（Sharded Lock）代替全局锁，减少锁竞争
 - 每个分片使用独立的锁，提高并发处理能力
@@ -188,4 +186,7 @@ ksubdomain只需要1分半，速度远远比massdns、dnsx快~
 - 动态速率调整，根据系统负载自适应发包速率
 - 批量加载和处理域名，减少单个域名处理开销
 
-这些优化使得ksubdomain在大规模子域名爆破时能够达到最佳性能，充分利用系统资源。
+- 网卡配置文件可以环境变量传输 ksubdomain-config
+- 调用指定网卡可通过环境变量设置 ksubdomain-eth
+- 支持泛解析过滤
+- 输出格式 txt(实时输出) json(扫描完成后，泛解析过滤后输出) csv(扫描完成后，泛解析过滤后输出)

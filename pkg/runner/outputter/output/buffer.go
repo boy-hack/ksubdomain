@@ -24,9 +24,15 @@ func (b *BuffOutput) WriteDomainResult(domain result.Result) error {
 	b.sb.WriteString(msg + "\n")
 	return nil
 }
+
 func (b *BuffOutput) Close() {
 	b.sb.Reset()
 }
+
 func (b *BuffOutput) Strings() string {
 	return b.sb.String()
+}
+
+func (b *BuffOutput) Finally() error {
+	return nil
 }

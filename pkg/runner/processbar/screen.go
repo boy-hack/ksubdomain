@@ -12,5 +12,4 @@ func (s *ScreenProcess) WriteData(data *ProcessData) {
 }
 
 func (s *ScreenProcess) Close() {
-
 }

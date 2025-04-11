@@ -21,12 +21,6 @@ import (
 	"go.uber.org/ratelimit"
 )
 
-const (
-	VerifyType = "verify"
-	EnumType   = "enum"
-	TestType   = "test"
-)
-
 type Runner struct {
 	hm              *statusdb.StatusDb
 	options         *options.Options
@@ -96,7 +90,7 @@ func New(opt *options.Options) (*Runner, error) {
 	}
 	r.freeport = freePort
 	gologger.Infof("FreePort:%d\n", freePort)
-	r.dnsid = 0x2021
+	r.dnsid = 0x2021 // birthday of ksubdomain
 	r.maxRetry = opt.Retry
 	r.timeout = int64(opt.TimeOut)
 	r.fisrtloadChanel = make(chan string)

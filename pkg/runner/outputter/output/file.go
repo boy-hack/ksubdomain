@@ -1,40 +1,55 @@
 package output
 
 import (
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"os"
 	"strings"
 )
 
 type FileOutPut struct {
-	output     *os.File
-	onlyDomain bool
+	output         *os.File
+	wildFilterMode string
+	domains        []result.Result
+	filename       string
 }
 
-func NewFileOutput(filename string, onlyDomain bool) (*FileOutPut, error) {
+func NewPlainOutput(filename string, wildFilterMode string) (*FileOutPut, error) {
 	output, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
 		return nil, err
 	}
 	f := new(FileOutPut)
 	f.output = output
-	f.onlyDomain = onlyDomain
+	f.wildFilterMode = wildFilterMode
+	f.filename = filename
 	return f, err
 }
 func (f *FileOutPut) WriteDomainResult(domain result.Result) error {
 	var msg string
-	if f.onlyDomain {
-		msg = domain.Subdomain
-	} else {
-		var domains []string = []string{domain.Subdomain}
-		for _, item := range domain.Answers {
-			domains = append(domains, item)
-		}
-		msg = strings.Join(domains, "=>")
+	var domains []string = []string{domain.Subdomain}
+	for _, item := range domain.Answers {
+		domains = append(domains, item)
 	}
+	msg = strings.Join(domains, "=>")
 	_, err := f.output.WriteString(msg + "\n")
+	f.domains = append(f.domains, domain)
 	return err
 }
 func (f *FileOutPut) Close() {
 	f.output.Close()
+}
+func (f *FileOutPut) Finally() error {
+	if len(f.domains) > 0 {
+		results := outputter.WildFilterOutputResult(f.wildFilterMode, f.domains)
+		buf := strings.Builder{}
+		for _, item := range results {
+			buf.WriteString(item.Subdomain + "=>")
+			buf.WriteString(strings.Join(item.Answers, "=>"))
+			buf.WriteString("\n")
+		}
+		err := os.WriteFile(f.filename, []byte(buf.String()), 0664)
+		return err
+	}
+	return nil
 }
