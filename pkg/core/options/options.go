@@ -25,7 +25,6 @@ const (
 type Options struct {
 	Rate               int64              // 每秒发包速率
 	Domain             chan string        // 域名输入
-	DomainTotal        int                // 扫描域名总数
 	Resolvers          []string           // dns resolvers
 	Silent             bool               // 安静模式
 	TimeOut            int                // 超时时间 单位(秒)

@@ -66,18 +66,9 @@ func New(opt *options.Options) (*Runner, error) {
 		return nil, err
 	}
 
-	allPacket := opt.DomainTotal
-	calcLimit := float64(allPacket/opt.TimeOut) * 0.9
 	cpuLimit := float64(runtime.NumCPU() * 10000)
-	if calcLimit > cpuLimit {
-		calcLimit = cpuLimit
-	}
-	if calcLimit < 5000 {
-		calcLimit = 5000
-	}
-	limit := int(math.Min(calcLimit, float64(opt.Rate)))
+	limit := int(math.Min(cpuLimit, float64(opt.Rate)))
 	r.limit = ratelimit.New(limit)
-	gologger.Infof("Domain Count:%d\n", r.options.DomainTotal)
 	gologger.Infof("Rate:%dpps\n", limit)
 
 	r.sender = make(chan string, 50000)

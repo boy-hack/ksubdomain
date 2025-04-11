@@ -114,26 +114,6 @@ func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
 	// 向处理通道发送DNS响应
 	select {
 	case dnsChanel <- *dc.dns:
-	default:
-		// 通道满了，直接处理
-		dns := *dc.dns
-		subdomain := string(dns.Questions[0].Name)
-		r.hm.Del(subdomain)
-		if dns.ANCount > 0 {
-			atomic.AddUint64(&r.successIndex, 1)
-			var answers []string
-			for _, v := range dns.Answers {
-				answer, err := dnsRecord2String(v)
-				if err != nil {
-					continue
-				}
-				answers = append(answers, answer)
-			}
-			r.recver <- result.Result{
-				Subdomain: subdomain,
-				Answers:   answers,
-			}
-		}
 	}
 }
 
@@ -176,7 +156,7 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 	dnsChanel := make(chan layers.DNS, 10000)
 
 	// 使用多个协程处理DNS响应，提高并发效率
-	processorCount := runtime.NumCPU()
+	processorCount := runtime.NumCPU() * 2
 	var processorWg sync.WaitGroup
 	processorWg.Add(processorCount)
 
@@ -239,7 +219,7 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 	}()
 
 	// 启动多个数据包解析协程
-	parserCount := runtime.NumCPU()
+	parserCount := runtime.NumCPU() * 2
 	var parserWg sync.WaitGroup
 	parserWg.Add(parserCount)
 
