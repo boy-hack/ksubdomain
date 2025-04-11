@@ -25,7 +25,7 @@ var commonFlags = []cli.Flag{
 		Aliases:  []string{"b"},
 		Usage:    "宽带的下行速度，可以5M,5K,5G",
 		Required: false,
-		Value:    "2m",
+		Value:    "3m",
 	},
 	&cli.StringSliceFlag{
 		Name:     "resolvers",
@@ -149,16 +149,18 @@ var verifyCommand = &cli.Command{
 			close(render)
 		}()
 
+		// 输出到屏幕
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		// 输出到屏幕
 		screenWriter, err := output2.NewScreenOutput()
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
 		var writer []outputter.Output
-		writer = append(writer, screenWriter)
+		if !c.Bool("not-print") {
+			writer = append(writer, screenWriter)
+		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
 			outputType := c.String("output-type")

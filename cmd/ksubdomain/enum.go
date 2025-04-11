@@ -76,19 +76,6 @@ var enumCommand = &cli.Command{
 				gologger.Fatalf("打开文件:%s 错误:%s", c.String("filename"), err.Error())
 			}
 		}
-
-		//levelDict := c.String("level-dict")
-		//var levelDomains []string
-		//if levelDict != "" {
-		//	dl, err := core2.LinesInFile(levelDict)
-		//	if err != nil {
-		//		gologger.Fatalf("读取domain文件失败:%s,请检查--level-dict参数\n", err.Error())
-		//	}
-		//	levelDomains = dl
-		//} else if c.Int("level") > 2 {
-		//	levelDomains = core2.GetDefaultSubNextData()
-		//}
-
 		render := make(chan string)
 		go func() {
 			defer close(render)
@@ -120,12 +107,18 @@ var enumCommand = &cli.Command{
 		}
 
 		// 输出到屏幕
+		if c.Bool("not-print") {
+			processBar = nil
+		}
+
 		screenWriter, err := output2.NewScreenOutput()
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
 		var writer []outputter.Output
-		writer = append(writer, screenWriter)
+		if !c.Bool("not-print") {
+			writer = append(writer, screenWriter)
+		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
 			outputType := c.String("output-type")

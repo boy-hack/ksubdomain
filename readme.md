@@ -65,7 +65,7 @@ KSubdomain 2.0 版本引入了多项底层优化，进一步压榨性能潜力�
 
 ### 源码编译 (可选)
 
-确保您已安装 Go 1.17+ 版本和 `libpcap` 环境。
+确保您已安装 Go 1.23 版本和 `libpcap` 环境。
 
 ```bash
 go install -v github.com/boy-hack/ksubdomain/cmd/ksubdomain@latest
