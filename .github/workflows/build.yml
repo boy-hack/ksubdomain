@@ -23,9 +23,9 @@ jobs:
           go-version: 1.17
         id: go
 
-      - name: Set up libpcap-dev
+      - name: Set up dependencies
         if: matrix.os == 'ubuntu-20.04'
-        run: sudo apt-get install libpcap-dev gcc -y
+        run: sudo apt-get install libpcap-dev gcc zip -y
 
       - name: Get version
         id: get_version
@@ -41,7 +41,7 @@ jobs:
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar ksubdomain
+          zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip ksubdomain
         if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
@@ -50,7 +50,7 @@ jobs:
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar ksubdomain
+          zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.zip ksubdomain
         if: matrix.os == 'macos-13'
         env:
           GOOS: darwin
@@ -59,7 +59,7 @@ jobs:
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
-          tar -cvf KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar ksubdomain
+          zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.zip ksubdomain
         if: matrix.os == 'macos-14'
         env:
           GOOS: darwin
@@ -67,7 +67,7 @@ jobs:
       - name: Build On Windows
         run: |
           go build -o ./ksubdomain.exe ./cmd/ksubdomain/
-          tar -cvf KSubdomain-windows.tar ksubdomain.exe
+          zip KSubdomain-windows.zip ksubdomain.exe
         if: matrix.os == 'ubuntu-20.04'
         env:
           GOOS: windows
@@ -77,7 +77,7 @@ jobs:
         with:
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
-          files: KSubdomain-*
+          files: KSubdomain-*.zip
           fail_on_unmatched_files: true
           token: ${{ secrets.TOKEN }}
           append_body: true
