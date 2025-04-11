@@ -101,8 +101,8 @@ var templateCache = newPacketTemplateCache()
 // sendCycle 实现发送域名请求的循环
 func (r *Runner) sendCycle() {
 	// 创建多个发送协程以提高吞吐量
-	workers := runtime.NumCPU() * 2
-	workChan := make(chan string, workers*2)
+	workers := runtime.NumCPU() * 4
+	workChan := make(chan string, workers)
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
@@ -190,63 +190,4 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	if err != nil {
 		gologger.Warningf("WritePacketDate error:%s\n", err.Error())
 	}
-}
-
-// BatchSend 批量发送DNS查询
-func BatchSend(domains []string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) int {
-	if len(domains) == 0 {
-		return 0
-	}
-
-	// 获取或创建发送模板
-	template := templateCache.getOrCreate(dnsname, ether, freeport)
-
-	// 从内存池获取DNS对象和缓冲区，避免重复创建
-	dns := GlobalMemPool.GetDNS()
-	defer GlobalMemPool.PutDNS(dns)
-
-	buf := GlobalMemPool.GetBuffer()
-	defer GlobalMemPool.PutBuffer(buf)
-
-	questions := GlobalMemPool.GetDNSQuestions()
-	defer GlobalMemPool.PutDNSQuestions(questions)
-
-	count := 0
-	for _, domain := range domains {
-		// 设置DNS层参数
-		dns.ID = dnsid
-		dns.QDCount = 1
-		dns.RD = true
-
-		// 清空并添加问题
-		dns.Questions = questions[:0]
-		questions = append(questions, layers.DNSQuestion{
-			Name:  []byte(domain),
-			Type:  dnsType,
-			Class: layers.DNSClassIN,
-		})
-		dns.Questions = questions
-
-		// 清空缓冲区并序列化
-		buf.Clear()
-		err := gopacket.SerializeLayers(
-			buf,
-			template.opts,
-			template.eth, template.ip, template.udp, dns,
-		)
-		if err != nil {
-			gologger.Warningf("SerializeLayers failed:%s\n", err.Error())
-			continue
-		}
-
-		// 发送数据包
-		err = handle.WritePacketData(buf.Bytes())
-		if err != nil {
-			gologger.Warningf("WritePacketData error:%s\n", err.Error())
-			continue
-		}
-		count++
-	}
-
-	return count
 }

@@ -25,3 +25,7 @@ func (s *ScreenOutputNoWidth) WriteDomainResult(domain result.Result) error {
 func (s *ScreenOutputNoWidth) Close() {
 
 }
+
+func (s *ScreenOutputNoWidth) Finally() error {
+	return nil
+}

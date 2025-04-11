@@ -3,24 +3,24 @@ package main
 import (
 	"bufio"
 	"context"
+	"os"
+
+	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
+
 	"github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/pkg/runner"
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
 	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
 	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
-	"os"
 )
 
 var commonFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name:     "domain",
-		Aliases:  []string{"d"},
-		Usage:    "域名",
-		Required: false,
-		Value:    "",
+	&cli.StringSliceFlag{
+		Name:    "domain",
+		Aliases: []string{"d"},
+		Usage:   "域名",
 	},
 	&cli.StringFlag{
 		Name:     "band",
@@ -29,12 +29,11 @@ var commonFlags = []cli.Flag{
 		Required: false,
 		Value:    "2m",
 	},
-	&cli.StringFlag{
+	&cli.StringSliceFlag{
 		Name:     "resolvers",
 		Aliases:  []string{"r"},
-		Usage:    "dns服务器文件路径，一行一个dns地址，默认会使用内置dns",
+		Usage:    "dns服务器，默认会使用内置dns",
 		Required: false,
-		Value:    "",
 	},
 	&cli.StringFlag{
 		Name:     "output",
@@ -42,6 +41,13 @@ var commonFlags = []cli.Flag{
 		Usage:    "输出文件名",
 		Required: false,
 		Value:    "",
+	},
+	&cli.StringFlag{
+		Name:     "output-type",
+		Aliases:  []string{"oy"},
+		Usage:    "输出文件类型: json, txt, csv",
+		Required: false,
+		Value:    "txt",
 	},
 	&cli.BoolFlag{
 		Name:  "silent",
@@ -64,33 +70,32 @@ var commonFlags = []cli.Flag{
 		Value: false,
 	},
 	&cli.BoolFlag{
-		Name:    "only-domain",
-		Aliases: []string{"od"},
-		Usage:   "只打印域名，不显示ip",
-		Value:   false,
-	},
-	&cli.BoolFlag{
 		Name:    "not-print",
 		Aliases: []string{"np"},
 		Usage:   "不打印域名结果",
 		Value:   false,
 	},
 	&cli.StringFlag{
-		Name:  "dns-type",
-		Usage: "dns类型 可以是a,aaaa,ns,cname,txt",
-		Value: "a",
+		Name:    "eth",
+		Aliases: []string{"e"},
+		Usage:   "指定网卡名称",
+	},
+	&cli.StringFlag{
+		Name:  "wild-filter-mode",
+		Usage: "泛解析过滤模式[从最终结果过滤泛解析域名]: basic(基础), advanced(高级), none(不过滤)",
+		Value: "none",
 	},
 }
 
 var verifyCommand = &cli.Command{
-	Name:    runner.VerifyType,
+	Name:    string(options.VerifyType),
 	Aliases: []string{"v"},
 	Usage:   "验证模式",
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:     "filename",
 			Aliases:  []string{"f"},
-			Usage:    "验证域名文件路径",
+			Usage:    "验证域名的文件路径",
 			Required: false,
 			Value:    "",
 		},
@@ -100,10 +105,9 @@ var verifyCommand = &cli.Command{
 			cli.ShowCommandHelpAndExit(c, "verify", 0)
 		}
 		var domains []string
-		var writer []outputter.Output
 		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
-		if c.String("domain") != "" {
-			domains = append(domains, c.String("domain"))
+		if c.StringSlice("domain") != nil {
+			domains = append(domains, c.StringSlice("domain")...)
 		}
 		if c.Bool("stdin") {
 			scanner := bufio.NewScanner(os.Stdin)
@@ -122,6 +126,7 @@ var verifyCommand = &cli.Command{
 			}
 			total += t
 		}
+		// 读取文件
 		go func() {
 			for _, line := range domains {
 				render <- line
@@ -141,37 +146,52 @@ var verifyCommand = &cli.Command{
 			close(render)
 		}()
 
-		onlyDomain := c.Bool("only-domain")
-		if c.String("output") != "" {
-			fileWriter, err := output2.NewFileOutput(c.String("output"), onlyDomain)
-			if err != nil {
-				gologger.Fatalf(err.Error())
-			}
-			writer = append(writer, fileWriter)
-		}
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		screenWriter, err := output2.NewScreenOutput(onlyDomain)
+		// 输出到屏幕
+		screenWriter, err := output2.NewScreenOutput()
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
+		var writer []outputter.Output
 		writer = append(writer, screenWriter)
+		if c.String("output") != "" {
+			outputFile := c.String("output")
+			outputType := c.String("output-type")
+			wildFilterMode := c.String("wild-filter-mode")
+			switch outputType {
+			case "txt":
+				p, err := output2.NewPlainOutput(outputFile, wildFilterMode)
+				if err != nil {
+					gologger.Fatalf(err.Error())
+				}
+				writer = append(writer, p)
+			case "json":
+				p := output2.NewJsonOutput(outputFile, wildFilterMode)
+				writer = append(writer, p)
+			case "csv":
+				p := output2.NewCsvOutput(outputFile, wildFilterMode)
+				writer = append(writer, p)
+			default:
+				gologger.Fatalf("输出类型错误:%s 暂不支持", outputType)
+			}
+		}
 
 		opt := &options.Options{
 			Rate:        options.Band2Rate(c.String("band")),
 			Domain:      render,
 			DomainTotal: total,
-			Resolvers:   options.GetResolvers(c.String("resolvers")),
+			Resolvers:   options.GetResolvers(c.StringSlice("resolvers")),
 			Silent:      c.Bool("silent"),
 			TimeOut:     c.Int("timeout"),
 			Retry:       c.Int("retry"),
-			Method:      runner.VerifyType,
+			Method:      options.VerifyType,
 			Writer:      writer,
 			ProcessBar:  processBar,
 		}
 		opt.Check()
-		opt.EtherInfo = options.GetDeviceConfig()
+		opt.EtherInfo = options.GetDeviceConfig(c.String("eth"))
 		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {

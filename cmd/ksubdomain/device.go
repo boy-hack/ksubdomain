@@ -27,11 +27,7 @@ var deviceCommand = &cli.Command{
 				gologger.Fatalf("获取网卡信息失败: %v\n", err)
 				return err
 			}
-
-			gologger.Infof("网卡名称: %s\n", ether.Device)
-			gologger.Infof("IP地址: %s\n", ether.SrcIp.String())
-			gologger.Infof("MAC地址: %s\n", ether.SrcMac.String())
-			gologger.Infof("网关MAC: %s\n", ether.DstMac.String())
+			device.PrintDeviceInfo(ether)
 			return nil
 		}
 
@@ -44,7 +40,6 @@ var deviceCommand = &cli.Command{
 		}
 
 		gologger.Infof("系统发现 %d 个可用的网卡:\n", len(deviceNames))
-		fmt.Println("")
 
 		for i, name := range deviceNames {
 			ip := deviceMap[name]
@@ -52,10 +47,8 @@ var deviceCommand = &cli.Command{
 			gologger.Infof("    IP地址: %s\n", ip.String())
 			fmt.Println("")
 		}
-
-		gologger.Infof("提示: 可以使用环境变量指定网卡，例如:\n")
-		gologger.Infof("export ksubdomain-device=YOUR_DEVICE_NAME\n")
-
+		ether := device.AutoGetDevices()
+		device.PrintDeviceInfo(ether)
 		return nil
 	},
 }
