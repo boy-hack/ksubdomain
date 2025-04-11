@@ -1,10 +1,12 @@
 package output
 
 import (
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
-	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"os"
 	"strings"
+
+	"github.com/boy-hack/ksubdomain/pkg/runner/result"
+
+	"github.com/boy-hack/ksubdomain/pkg/utils"
 )
 
 type FileOutPut struct {
@@ -41,7 +43,7 @@ func (f *FileOutPut) Close() {
 }
 func (f *FileOutPut) Finally() error {
 	if len(f.domains) > 0 {
-		results := outputter.WildFilterOutputResult(f.wildFilterMode, f.domains)
+		results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
 		buf := strings.Builder{}
 		for _, item := range results {
 			buf.WriteString(item.Subdomain + "=>")
