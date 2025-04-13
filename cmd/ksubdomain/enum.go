@@ -34,6 +34,12 @@ var enumCommand = &cli.Command{
 			Usage: "读取域名ns记录并加入到ns解析器中",
 			Value: false,
 		},
+		&cli.StringFlag{
+			Name:    "domain-list",
+			Aliases: []string{"ds"},
+			Usage:   "指定域名列表文件",
+			Value:   "",
+		},
 	}...),
 	Action: func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
@@ -52,6 +58,20 @@ var enumCommand = &cli.Command{
 			scanner.Split(bufio.ScanLines)
 			for scanner.Scan() {
 				domains = append(domains, scanner.Text())
+			}
+		}
+		if c.String("domain-list") != "" {
+			filename := c.String("domain-list")
+			f, err := os.Open(filename)
+			if err != nil {
+				gologger.Fatalf("打开文件:%s 出现错误:%s", filename, err.Error())
+			}
+			defer f.Close()
+			scanner := bufio.NewScanner(f)
+			scanner.Split(bufio.ScanLines)
+			for scanner.Scan() {
+				domain := scanner.Text()
+				domains = append(domains, domain)
 			}
 		}
 
