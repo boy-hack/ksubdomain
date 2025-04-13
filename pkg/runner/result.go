@@ -8,9 +8,9 @@ import (
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 )
 
-func (r *Runner) handleResult() {
+func (r *Runner) handleResult(predictChanel chan string) {
 	isWildCard := r.options.WildcardFilterMode != "none"
-	cacheResult := make([]result.Result, 0)
+	// cacheResult := make([]result.Result, 0)
 	var wg sync.WaitGroup
 
 	for res := range r.recver {
@@ -23,63 +23,23 @@ func (r *Runner) handleResult() {
 			_ = out.WriteDomainResult(res)
 		}
 		r.printStatus()
-		if r.options.Predict {
-			cacheResult = append(cacheResult, res)
-			if len(cacheResult) > 300 {
-				resultCopy := make([]result.Result, len(cacheResult))
-				copy(resultCopy, cacheResult)
-
-				wg.Add(1)
-				go func(results []result.Result) {
-					defer wg.Done()
-					_ = r.predict(results)
-				}(resultCopy)
-
-				cacheResult = make([]result.Result, 0)
-			}
-		}
+		// todo: 解决predict模式 go routine 阻塞问题
+		// if r.options.Predict {
+		// 	r.predict(res, predictChanel)
+		// }
 	}
-
-	if r.options.Predict && len(cacheResult) > 0 {
-		_ = r.predict(cacheResult)
-	}
-
 	wg.Wait()
 }
 
-type predictWrite struct {
-	sender chan string
-	mu     sync.Mutex
-}
-
-func (o *predictWrite) Write(p []byte) (n int, err error) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	domain := string(p)
-	o.sender <- domain
-	return len(p), nil
-}
-
-var predictMutex sync.Mutex
-
-func (r *Runner) predict(results []result.Result) error {
-	predictMutex.Lock()
-	defer predictMutex.Unlock()
+func (r *Runner) predict(res result.Result, predictChanel chan string) error {
 
 	if r.sender == nil {
 		return fmt.Errorf("sender通道未初始化")
 	}
 
-	buf := predictWrite{
-		sender: r.sender,
-	}
-
-	for _, res := range results {
-		_, err := predict.PredictDomains(res.Subdomain, &buf)
-		if err != nil {
-			return err
-		}
+	_, err := predict.PredictDomains(res.Subdomain, predictChanel)
+	if err != nil {
+		return err
 	}
 	return nil
 }

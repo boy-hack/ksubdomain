@@ -4,7 +4,6 @@ import (
 	"bufio"
 	_ "embed"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 )
@@ -21,13 +20,13 @@ type DomainGenerator struct {
 	patterns   []string            // 域名组合模式
 	subdomain  string              // 子域名部分
 	domain     string              // 根域名部分
-	output     io.Writer           // 输出接口
+	output     chan string         // 输出接口
 	count      int                 // 生成的域名计数
 	mu         sync.Mutex          // 保护count和output的互斥锁
 }
 
 // NewDomainGenerator 创建一个新的域名生成器
-func NewDomainGenerator(output io.Writer) (*DomainGenerator, error) {
+func NewDomainGenerator(output chan string) (*DomainGenerator, error) {
 	// 创建生成器实例
 	dg := &DomainGenerator{
 		categories: make(map[string][]string),
@@ -133,10 +132,8 @@ func (dg *DomainGenerator) processPattern(pattern string, replacements map[strin
 		// 没有更多标签，输出最终结果
 		if pattern != "" && dg.output != nil {
 			dg.mu.Lock()
-			_, err := fmt.Fprint(dg.output, pattern)
-			if err == nil {
-				dg.count++
-			}
+			dg.output <- pattern
+			dg.count++
 			dg.mu.Unlock()
 		}
 		return
@@ -184,19 +181,14 @@ func (dg *DomainGenerator) processPattern(pattern string, replacements map[strin
 }
 
 // PredictDomains 根据给定域名预测可能的域名变体，直接输出结果
-func PredictDomains(domain string, output io.Writer) (int, error) {
+func PredictDomains(domain string, output chan string) (int, error) {
 	// 检查输出对象是否为nil
 	if output == nil {
 		return 0, fmt.Errorf("输出对象不能为空")
 	}
 
-	// 创建一个安全的输出包装器，确保写入操作是并发安全的
-	safeOutput := &safeWriter{
-		writer: output,
-	}
-
 	// 创建域名生成器
-	generator, err := NewDomainGenerator(safeOutput)
+	generator, err := NewDomainGenerator(output)
 	if err != nil {
 		return 0, err
 	}
@@ -206,16 +198,4 @@ func PredictDomains(domain string, output io.Writer) (int, error) {
 
 	// 生成预测域名并返回生成的数量
 	return generator.GenerateDomains(), nil
-}
-
-// safeWriter 线程安全的Writer包装器
-type safeWriter struct {
-	writer io.Writer
-	mu     sync.Mutex
-}
-
-func (sw *safeWriter) Write(p []byte) (n int, err error) {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
-	return sw.writer.Write(p)
 }
