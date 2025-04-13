@@ -139,7 +139,18 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 	// 发送线程
 	go r.sendCycle()
 	// 处理结果
-	go r.handleResult()
+	predictChanel := make(chan string)
+	go func() {
+		defer func() {
+			r.options.Predict = false
+		}()
+		if r.options.Predict {
+			for domain := range predictChanel {
+				r.sender <- domain
+			}
+		}
+	}()
+	go r.handleResult(predictChanel)
 	// 加载域名
 	go func() {
 		defer wg.Done()
@@ -185,6 +196,10 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 		}
 	}()
 	wg.Wait()
+	if r.options.Predict {
+		time.Sleep(10 * time.Second)
+	}
+	close(predictChanel)
 	close(r.recver)
 	close(r.sender)
 }
