@@ -6,6 +6,5 @@ import (
 
 type Output interface {
 	WriteDomainResult(domain result.Result) error
-	Finally() error
-	Close()
+	Close() error
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 
 	"github.com/boy-hack/ksubdomain/pkg/utils"
@@ -28,10 +29,8 @@ func (f *JsonOutPut) WriteDomainResult(domain result.Result) error {
 	return nil
 }
 
-func (f *JsonOutPut) Close() {
-}
-
-func (f *JsonOutPut) Finally() error {
+func (f *JsonOutPut) Close() error {
+	gologger.Infof("写入json文件:%s count:%d", f.filename, len(f.domains))
 	if len(f.domains) > 0 {
 		results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
 		jsonBytes, err := json.Marshal(results)

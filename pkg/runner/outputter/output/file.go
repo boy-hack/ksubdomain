@@ -38,20 +38,15 @@ func (f *FileOutPut) WriteDomainResult(domain result.Result) error {
 	f.domains = append(f.domains, domain)
 	return err
 }
-func (f *FileOutPut) Close() {
+func (f *FileOutPut) Close() error {
 	f.output.Close()
-}
-func (f *FileOutPut) Finally() error {
-	if len(f.domains) > 0 {
-		results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
-		buf := strings.Builder{}
-		for _, item := range results {
-			buf.WriteString(item.Subdomain + "=>")
-			buf.WriteString(strings.Join(item.Answers, "=>"))
-			buf.WriteString("\n")
-		}
-		err := os.WriteFile(f.filename, []byte(buf.String()), 0664)
-		return err
+	results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
+	buf := strings.Builder{}
+	for _, item := range results {
+		buf.WriteString(item.Subdomain + "=>")
+		buf.WriteString(strings.Join(item.Answers, "=>"))
+		buf.WriteString("\n")
 	}
-	return nil
+	err := os.WriteFile(f.filename, []byte(buf.String()), 0664)
+	return err
 }
