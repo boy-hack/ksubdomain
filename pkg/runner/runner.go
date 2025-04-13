@@ -196,6 +196,12 @@ func (r *Runner) Close() {
 	if r.hm != nil {
 		r.hm.Close()
 	}
+	for _, out := range r.options.Writer {
+		err := out.Close()
+		if err != nil {
+			gologger.Errorf("关闭输出器失败: %v", err)
+		}
+	}
 	if r.options.ProcessBar != nil {
 		r.options.ProcessBar.Close()
 	}

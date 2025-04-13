@@ -1,8 +1,9 @@
 package output
 
 import (
-	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"strings"
+
+	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 )
 
 type BuffOutput struct {
@@ -25,14 +26,11 @@ func (b *BuffOutput) WriteDomainResult(domain result.Result) error {
 	return nil
 }
 
-func (b *BuffOutput) Close() {
+func (b *BuffOutput) Close() error {
 	b.sb.Reset()
+	return nil
 }
 
 func (b *BuffOutput) Strings() string {
 	return b.sb.String()
-}
-
-func (b *BuffOutput) Finally() error {
-	return nil
 }

@@ -28,10 +28,6 @@ func (s *ScreenOutputNoWidth) WriteDomainResult(domain result.Result) error {
 	}
 	return nil
 }
-func (s *ScreenOutputNoWidth) Close() {
-
-}
-
-func (s *ScreenOutputNoWidth) Finally() error {
+func (s *ScreenOutputNoWidth) Close() error {
 	return nil
 }

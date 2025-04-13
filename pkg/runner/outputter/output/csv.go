@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"github.com/boy-hack/ksubdomain/pkg/utils"
 )
@@ -27,26 +28,39 @@ func (f *CsvOutput) WriteDomainResult(domain result.Result) error {
 	return nil
 }
 
-func (f *CsvOutput) Close() {
-}
+func (f *CsvOutput) Close() error {
+	gologger.Infof("写入csv文件:%s\n", f.filename)
 
-func (f *CsvOutput) Finally() error {
+	// 检查结果数量
+	if len(f.domains) == 0 {
+		gologger.Infof("没有发现子域名结果，CSV文件将为空\n")
+		return nil
+	}
+
 	results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
+	gologger.Infof("过滤后结果数量: %d\n", len(results))
+
+	// 检查过滤后结果
+	if len(results) == 0 {
+		gologger.Infof("经过通配符过滤后没有有效结果，CSV文件将为空\n")
+		return nil
+	}
 
 	// 创建CSV文件
 	file, err := os.Create(f.filename)
 	if err != nil {
+		gologger.Errorf("创建CSV文件失败: %v", err)
 		return err
 	}
 	defer file.Close()
 
 	// 创建CSV写入器
 	writer := csv.NewWriter(file)
-	defer writer.Flush()
 
 	// 写入CSV头部
 	err = writer.Write([]string{"Subdomain", "Answers"})
 	if err != nil {
+		gologger.Errorf("写入CSV头部失败: %v", err)
 		return err
 	}
 
@@ -63,9 +77,11 @@ func (f *CsvOutput) Finally() error {
 
 		err = writer.Write([]string{result.Subdomain, answersStr})
 		if err != nil {
-			return err
+			gologger.Errorf("写入CSV数据行失败: %v", err)
+			continue
 		}
 	}
-
+	writer.Flush()
+	gologger.Infof("CSV文件写入成功，共写入 %d 条记录", len(results))
 	return nil
 }

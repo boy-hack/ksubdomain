@@ -39,10 +39,6 @@ func (s *ScreenOutput) WriteDomainResult(domain result.Result) error {
 	return nil
 }
 
-func (s *ScreenOutput) Close() {
-
-}
-
-func (s *ScreenOutput) Finally() error {
+func (s *ScreenOutput) Close() error {
 	return nil
 }
