@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"os"
+
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/pkg/runner"
@@ -10,7 +12,6 @@ import (
 	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
 	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
-	"os"
 )
 
 var commonFlags = []cli.Flag{
@@ -143,7 +144,7 @@ var verifyCommand = &cli.Command{
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		screenWriter, err := output2.NewScreenOutput()
+		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
