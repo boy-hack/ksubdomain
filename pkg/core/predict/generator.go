@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 )
 
 //go:embed data/regular.cfg
@@ -22,6 +23,7 @@ type DomainGenerator struct {
 	domain     string              // 根域名部分
 	output     io.Writer           // 输出接口
 	count      int                 // 生成的域名计数
+	mu         sync.Mutex          // 保护count和output的互斥锁
 }
 
 // NewDomainGenerator 创建一个新的域名生成器
@@ -99,11 +101,13 @@ func (dg *DomainGenerator) SetBaseDomain(domain string) {
 
 // GenerateDomains 生成预测域名并实时输出
 func (dg *DomainGenerator) GenerateDomains() int {
+	dg.mu.Lock()
 	dg.count = 0
+	dg.mu.Unlock()
 
 	// 如果没有设置子域名，则直接返回
 	if dg.subdomain == "" && dg.domain == "" {
-		return dg.count
+		return 0
 	}
 
 	// 遍历所有模式
@@ -115,7 +119,10 @@ func (dg *DomainGenerator) GenerateDomains() int {
 		})
 	}
 
-	return dg.count
+	dg.mu.Lock()
+	result := dg.count
+	dg.mu.Unlock()
+	return result
 }
 
 // processPattern 递归处理模式中的标签替换
@@ -124,9 +131,13 @@ func (dg *DomainGenerator) processPattern(pattern string, replacements map[strin
 	startIdx := strings.Index(pattern, "{")
 	if startIdx == -1 {
 		// 没有更多标签，输出最终结果
-		if pattern != "" {
-			fmt.Fprint(dg.output, pattern)
-			dg.count++
+		if pattern != "" && dg.output != nil {
+			dg.mu.Lock()
+			_, err := fmt.Fprint(dg.output, pattern)
+			if err == nil {
+				dg.count++
+			}
+			dg.mu.Unlock()
 		}
 		return
 	}
@@ -174,8 +185,18 @@ func (dg *DomainGenerator) processPattern(pattern string, replacements map[strin
 
 // PredictDomains 根据给定域名预测可能的域名变体，直接输出结果
 func PredictDomains(domain string, output io.Writer) (int, error) {
+	// 检查输出对象是否为nil
+	if output == nil {
+		return 0, fmt.Errorf("输出对象不能为空")
+	}
+
+	// 创建一个安全的输出包装器，确保写入操作是并发安全的
+	safeOutput := &safeWriter{
+		writer: output,
+	}
+
 	// 创建域名生成器
-	generator, err := NewDomainGenerator(output)
+	generator, err := NewDomainGenerator(safeOutput)
 	if err != nil {
 		return 0, err
 	}
@@ -185,4 +206,16 @@ func PredictDomains(domain string, output io.Writer) (int, error) {
 
 	// 生成预测域名并返回生成的数量
 	return generator.GenerateDomains(), nil
+}
+
+// safeWriter 线程安全的Writer包装器
+type safeWriter struct {
+	writer io.Writer
+	mu     sync.Mutex
+}
+
+func (sw *safeWriter) Write(p []byte) (n int, err error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.writer.Write(p)
 }
