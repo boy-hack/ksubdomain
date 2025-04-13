@@ -197,7 +197,7 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 	}()
 	wg.Wait()
 	if r.options.Predict {
-		time.Sleep(10 * time.Second)
+		gologger.Infof("预测模式暂时下线了\n")
 	}
 	close(predictChanel)
 	close(r.recver)
