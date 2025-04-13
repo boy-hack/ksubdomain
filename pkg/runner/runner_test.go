@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"testing"
+
 	"github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/pkg/device"
@@ -9,12 +11,11 @@ import (
 	"github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
 	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestVerify(t *testing.T) {
 	process := processbar2.FakeScreenProcess{}
-	screenPrinter, _ := output.NewScreenOutputNoWidth()
+	screenPrinter, _ := output.NewScreenOutputNoWidth(false)
 	domains := []string{"stu.baidu.com", "haokan.baidu.com"}
 	domainChanel := make(chan string)
 	go func() {
@@ -48,7 +49,7 @@ func TestVerify(t *testing.T) {
 
 func TestEnum(t *testing.T) {
 	process := processbar2.ScreenProcess{}
-	screenPrinter, _ := output.NewScreenOutputNoWidth()
+	screenPrinter, _ := output.NewScreenOutputNoWidth(false)
 	domains := core.GetDefaultSubdomainData()
 	domainChanel := make(chan string)
 	go func() {

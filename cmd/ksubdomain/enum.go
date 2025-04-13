@@ -117,7 +117,7 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 
-		screenWriter, err := output2.NewScreenOutput()
+		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
