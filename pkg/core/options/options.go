@@ -1,17 +1,12 @@
 package options
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	device2 "github.com/boy-hack/ksubdomain/pkg/device"
+	"strconv"
 
-	core2 "github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
 	"github.com/boy-hack/ksubdomain/pkg/runner/processbar"
-	"github.com/google/gopacket/layers"
 )
 
 type OptionMethod string
@@ -83,30 +78,7 @@ func GetResolvers(resolvers []string) []string {
 }
 
 func (opt *Options) Check() {
-
 	if opt.Silent {
 		gologger.MaxLevel = gologger.Silent
-	}
-
-	core2.ShowBanner()
-
-}
-func DnsType(s string) (layers.DNSType, error) {
-	s = strings.ToLower(s)
-	switch s {
-	case "a":
-		return layers.DNSTypeA, nil
-	case "ns":
-		return layers.DNSTypeNS, nil
-	case "cname":
-		return layers.DNSTypeCNAME, nil
-	case "txt":
-		return layers.DNSTypeTXT, nil
-	case "aaaa":
-		return layers.DNSTypeAAAA, nil
-	case "uri":
-		return layers.DNSTypeURI, nil
-	default:
-		return layers.DNSTypeA, fmt.Errorf("无法将%s转换为DNSType类型", s)
 	}
 }

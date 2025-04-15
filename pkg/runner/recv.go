@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/pkg/runner/result"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -99,7 +100,7 @@ func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
 	}
 
 	// 确认DNS ID匹配
-	if dc.dns.ID != r.dnsid {
+	if dc.dns.ID != r.dnsID {
 		return
 	}
 
@@ -109,7 +110,7 @@ func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
 	}
 
 	// 记录接收包数量
-	atomic.AddUint64(&r.recvIndex, 1)
+	atomic.AddUint64(&r.receiveCount, 1)
 
 	// 向处理通道发送DNS响应
 	select {
@@ -118,7 +119,7 @@ func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
 }
 
 // recvChanel 实现接收DNS响应的功能
-func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
+func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var (
 		snapshotLen = 65536
@@ -127,29 +128,38 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 	)
 	inactive, err := pcap.NewInactiveHandle(r.options.EtherInfo.Device)
 	if err != nil {
-		return err
+		gologger.Errorf("创建网络捕获句柄失败: %v", err)
+		return
 	}
 	err = inactive.SetSnapLen(snapshotLen)
 	if err != nil {
-		return err
+		gologger.Errorf("设置抓包长度失败: %v", err)
+		return
 	}
 	defer inactive.CleanUp()
+
 	if err = inactive.SetTimeout(timeout); err != nil {
-		return err
+		gologger.Errorf("设置超时失败: %v", err)
+		return
 	}
+
 	err = inactive.SetImmediateMode(true)
 	if err != nil {
-		return err
+		gologger.Errorf("设置即时模式失败: %v", err)
+		return
 	}
+
 	handle, err := inactive.Activate()
 	if err != nil {
-		return err
+		gologger.Errorf("激活网络捕获失败: %v", err)
+		return
 	}
 	defer handle.Close()
 
-	err = handle.SetBPFFilter(fmt.Sprintf("udp and src port 53 and dst port %d", r.freeport))
+	err = handle.SetBPFFilter(fmt.Sprintf("udp and src port 53 and dst port %d", r.listenPort))
 	if err != nil {
-		return errors.New(fmt.Sprintf("SetBPFFilter Faild:%s", err.Error()))
+		gologger.Errorf("设置BPF过滤器失败: %v", err)
+		return
 	}
 
 	// 创建DNS响应处理通道，缓冲大小适当增加
@@ -174,9 +184,9 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 					}
 
 					subdomain := string(dns.Questions[0].Name)
-					r.hm.Del(subdomain)
+					r.statusDB.Del(subdomain)
 					if dns.ANCount > 0 {
-						atomic.AddUint64(&r.successIndex, 1)
+						atomic.AddUint64(&r.successCount, 1)
 						var answers []string
 						for _, v := range dns.Answers {
 							answer, err := dnsRecord2String(v)
@@ -185,7 +195,7 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 							}
 							answers = append(answers, answer)
 						}
-						r.recver <- result.Result{
+						r.resultChan <- result.Result{
 							Subdomain: subdomain,
 							Answers:   answers,
 						}
@@ -203,7 +213,7 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 		for {
 			data, _, err := handle.ReadPacketData()
 			if err != nil {
-				if errors.Is(pcap.NextErrorTimeoutExpired, err) {
+				if errors.Is(err, pcap.NextErrorTimeoutExpired) {
 					continue
 				}
 				return
@@ -250,6 +260,4 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) error {
 	// 等待所有处理和解析协程结束
 	parserWg.Wait()
 	processorWg.Wait()
-
-	return nil
 }

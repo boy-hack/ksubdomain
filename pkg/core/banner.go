@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/boy-hack/ksubdomain/pkg/core/conf"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 )
@@ -15,6 +16,6 @@ const banner = `
 `
 
 func ShowBanner() {
-	gologger.Printf(banner)
+	fmt.Printf(banner)
 	gologger.Infof("Current Version: %s\n", conf.Version)
 }

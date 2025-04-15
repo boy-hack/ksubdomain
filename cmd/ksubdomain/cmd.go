@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/boy-hack/ksubdomain/pkg/core"
 	"github.com/boy-hack/ksubdomain/pkg/core/conf"
 	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
 	"github.com/urfave/cli/v2"
@@ -20,7 +21,7 @@ func main() {
 			deviceCommand,
 		},
 	}
-
+	core.ShowBanner()
 	err := app.Run(os.Args)
 	if err != nil {
 		gologger.Fatalf(err.Error())

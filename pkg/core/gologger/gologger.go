@@ -117,9 +117,9 @@ func log(level Level, label string, format string, args ...interface{}) {
 		message := fmt.Sprintf(format, args...)
 		sb.WriteString(message)
 
-		//if strings.HasSuffix(message, "\n") == false {
-		//	sb.WriteString("\n")
-		//}
+		if strings.HasSuffix(message, "\n") == false {
+			sb.WriteString("\n")
+		}
 
 		mutex.Lock()
 		switch level {

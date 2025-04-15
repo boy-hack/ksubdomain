@@ -22,7 +22,7 @@ func (s *ScreenOutputNoWidth) WriteDomainResult(domain result.Result) error {
 	}
 	msg = strings.Join(domains, " => ")
 	if !s.silent {
-		gologger.Infof("%s\n", msg)
+		gologger.Silentf("%s\n", msg)
 	} else {
 		gologger.Silentf("%s\n", domain.Subdomain)
 	}
