@@ -173,18 +173,18 @@ var verifyCommand = &cli.Command{
 				gologger.Fatalf("输出类型错误:%s 暂不支持", outputType)
 			}
 		}
-
+		resolver := options.GetResolvers(c.StringSlice("resolvers"))
 		opt := &options.Options{
 			Rate:               options.Band2Rate(c.String("band")),
 			Domain:             render,
-			Resolvers:          options.GetResolvers(c.StringSlice("resolvers")),
+			Resolvers:          resolver,
 			Silent:             c.Bool("silent"),
 			TimeOut:            c.Int("timeout"),
 			Retry:              c.Int("retry"),
 			Method:             options.VerifyType,
 			Writer:             writer,
 			ProcessBar:         processBar,
-			EtherInfo:          options.GetDeviceConfig(c.String("eth")),
+			EtherInfo:          options.GetDeviceConfig(resolver),
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			Predict:            c.Bool("predict"),
 		}

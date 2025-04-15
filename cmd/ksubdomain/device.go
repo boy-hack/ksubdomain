@@ -11,26 +11,8 @@ import (
 var deviceCommand = &cli.Command{
 	Name:  "device",
 	Usage: "列出系统所有可用的网卡信息",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "name",
-			Aliases: []string{"n"},
-			Usage:   "指定网卡名称，获取该网卡的详细信息",
-		},
-	},
+	Flags: []cli.Flag{},
 	Action: func(c *cli.Context) error {
-		// 如果指定了网卡名称，显示该网卡的详细信息
-		if c.String("name") != "" {
-			deviceName := c.String("name")
-			ether, err := device.GetDevicesByName(deviceName)
-			if err != nil {
-				gologger.Fatalf("获取网卡信息失败: %v\n", err)
-				return err
-			}
-			device.PrintDeviceInfo(ether)
-			return nil
-		}
-
 		// 否则列出所有可用的网卡
 		deviceNames, deviceMap := device.GetAllIPv4Devices()
 
@@ -47,7 +29,11 @@ var deviceCommand = &cli.Command{
 			gologger.Infof("    IP地址: %s\n", ip.String())
 			fmt.Println("")
 		}
-		ether := device.AutoGetDevices()
+		ether, err := device.AutoGetDevices([]string{"1.1.1.1", "8.8.8.8"})
+		if err != nil {
+			gologger.Errorf("获取网卡信息失败: %s\n", err.Error())
+			return nil
+		}
 		device.PrintDeviceInfo(ether)
 		return nil
 	},
