@@ -20,7 +20,7 @@ on:
 jobs:
   build-linux:
     name: Build Linux
-    if: ${{ inputs.buildLinux == 'true' }}
+    if: ${{ inputs.buildLinux }}
     runs-on: ubuntu-22.04
     steps:
       - name: Set up Go
@@ -45,7 +45,7 @@ jobs:
           CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -ldbus-1 -Wl,-Bdynamic"
           
       - name: Build Windows on Linux
-        if: ${{ inputs.buildWindows == 'true' }}
+        if: ${{ inputs.buildWindows }}
         run: go build -o ./ksubdomain_windows.exe ./cmd/ksubdomain/
         env:
           GOOS: windows
@@ -59,7 +59,7 @@ jobs:
           if-no-files-found: error
           
       - name: Upload Windows build artifact
-        if: ${{ inputs.buildWindows == 'true' }}
+        if: ${{ inputs.buildWindows }}
         uses: actions/upload-artifact@v3
         with:
           name: ksubdomain_Windows_amd64
@@ -68,7 +68,7 @@ jobs:
 
   build-macos:
     name: Build macOS
-    if: ${{ inputs.buildMacOS == 'true' }}
+    if: ${{ inputs.buildMacOS }}
     runs-on: macos-13
     steps:
       - name: Set up Go
