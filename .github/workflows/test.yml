@@ -30,7 +30,7 @@ jobs:
         id: go
 
       - name: Set up libpcap-dev
-        run: sudo apt-get install libpcap-dev libdbus-1-dev gcc -y
+        run: sudo apt-get install libpcap-dev libdbus-1-dev libsystemd-dev gcc -y
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v3
@@ -42,7 +42,7 @@ jobs:
         run: go build -o ./ksubdomain_Linux ./cmd/ksubdomain/
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -ldbus-1 -Wl,-Bdynamic"
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic -ldbus-1 -lsystemd"
           
       - name: Build Windows on Linux
         if: ${{ inputs.buildWindows }}
