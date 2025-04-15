@@ -166,7 +166,6 @@ var enumCommand = &cli.Command{
 				gologger.Fatalf("输出类型错误:%s 暂不支持", outputType)
 			}
 		}
-
 		opt := &options.Options{
 			Rate:               options.Band2Rate(c.String("band")),
 			Domain:             render,
@@ -183,7 +182,7 @@ var enumCommand = &cli.Command{
 			Predict:            c.Bool("predict"),
 		}
 		opt.Check()
-		opt.EtherInfo = options.GetDeviceConfig(c.String("eth"))
+		opt.EtherInfo = options.GetDeviceConfig(defaultResolver)
 		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {

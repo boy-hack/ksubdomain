@@ -17,7 +17,7 @@ var testCommand = &cli.Command{
 		},
 	},
 	Action: func(c *cli.Context) error {
-		ethTable := options.GetDeviceConfig(c.String("eth"))
+		ethTable := options.GetDeviceConfig(nil)
 		runner.TestSpeed(ethTable)
 		return nil
 	},
