@@ -2,7 +2,6 @@ package runner
 
 import (
 	"net"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -101,48 +100,28 @@ var templateCache = newPacketTemplateCache()
 
 // sendCycle 实现发送域名请求的循环
 func (r *Runner) sendCycle() {
-	// 创建多个发送协程以提高吞吐量
-	workers := runtime.NumCPU() * 2
-	workChan := make(chan string, workers)
-
-	var wg sync.WaitGroup
-	wg.Add(workers)
-
-	// 启动多个工作协程发送数据包
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			for domain := range workChan {
-				r.limit.Take()
-				v, ok := r.hm.Get(domain)
-				if !ok {
-					v = statusdb.Item{
-						Domain:      domain,
-						Dns:         r.choseDns(domain),
-						Time:        time.Now(),
-						Retry:       0,
-						DomainLevel: 0,
-					}
-					r.hm.Add(domain, v)
-				} else {
-					v.Retry += 1
-					v.Time = time.Now()
-					v.Dns = r.choseDns(domain)
-					r.hm.Set(domain, v)
-				}
-				send(domain, v.Dns, r.options.EtherInfo, r.dnsid, uint16(r.freeport), r.handle, layers.DNSTypeA)
-				atomic.AddUint64(&r.sendIndex, 1)
-			}
-		}()
-	}
-
 	// 从发送通道接收域名，分发给工作协程
-	for domain := range r.sender {
-		workChan <- domain
+	for domain := range r.domainChan {
+		r.rateLimiter.Take()
+		v, ok := r.statusDB.Get(domain)
+		if !ok {
+			v = statusdb.Item{
+				Domain:      domain,
+				Dns:         r.selectDNSServer(domain),
+				Time:        time.Now(),
+				Retry:       0,
+				DomainLevel: 0,
+			}
+			r.statusDB.Add(domain, v)
+		} else {
+			v.Retry += 1
+			v.Time = time.Now()
+			v.Dns = r.selectDNSServer(domain)
+			r.statusDB.Set(domain, v)
+		}
+		send(domain, v.Dns, r.options.EtherInfo, r.dnsID, uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
+		atomic.AddUint64(&r.sendCount, 1)
 	}
-
-	close(workChan)
-	wg.Wait()
 }
 
 // send 发送单个DNS查询包

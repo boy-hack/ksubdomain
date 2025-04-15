@@ -13,7 +13,7 @@ import (
 // 使用超时检测和批量发送以提高效率
 func (r *Runner) retry(ctx context.Context) {
 	// 检测间隔，太频繁会浪费CPU资源
-	t := time.NewTicker(time.Duration(r.timeout) * time.Second)
+	t := time.NewTicker(time.Duration(r.timeoutSeconds) * time.Second)
 	defer t.Stop()
 
 	// 用于批量发送的域名缓冲区
@@ -42,7 +42,7 @@ func (r *Runner) retry(ctx context.Context) {
 						return
 					}
 					// 重新发送
-					r.sender <- domain
+					r.domainChan <- domain
 				}
 			}
 		}()
@@ -59,7 +59,7 @@ func (r *Runner) retry(ctx context.Context) {
 			return
 		case <-t.C:
 			// 如果上次扫描为空且长度仍为0，可跳过
-			currentLength := r.hm.Length()
+			currentLength := r.statusDB.Length()
 			if lastScanEmpty && currentLength == 0 {
 				continue
 			}
@@ -75,21 +75,21 @@ func (r *Runner) retry(ctx context.Context) {
 			}
 
 			// 收集需要重试的域名
-			r.hm.Scan(func(key string, v statusdb.Item) error {
+			r.statusDB.Scan(func(key string, v statusdb.Item) error {
 				// 超过最大重试次数则放弃
-				if r.maxRetry > 0 && v.Retry > r.maxRetry {
-					r.hm.Del(key)
-					atomic.AddUint64(&r.faildIndex, 1)
+				if r.maxRetryCount > 0 && v.Retry > r.maxRetryCount {
+					r.statusDB.Del(key)
+					atomic.AddUint64(&r.failedCount, 1)
 					return nil
 				}
 
 				// 检查是否超时
-				if int64(now.Sub(v.Time).Seconds()) >= r.timeout {
+				if int64(now.Sub(v.Time).Seconds()) >= r.timeoutSeconds {
 					// 将域名添加到重试列表，或者使用批量发送通道
 					retryDomains = append(retryDomains, key)
 
 					// 根据DNS服务器分组，以便批量发送
-					dns := r.choseDns(key)
+					dns := r.selectDNSServer(key)
 					if _, ok := dnsBatches[dns]; !ok {
 						dnsBatches[dns] = make([]string, 0, batchSize)
 					}
@@ -111,7 +111,7 @@ func (r *Runner) retry(ctx context.Context) {
 						// 发送成功
 					default:
 						// 通道满了，直接发送
-						r.sender <- domain
+						r.domainChan <- domain
 					}
 				}
 			}
