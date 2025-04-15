@@ -52,7 +52,7 @@ jobs:
           GOENABLE: 1
 
       - name: Upload Linux build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ksubdomain_Linux_amd64
           path: ksubdomain_Linux
@@ -60,7 +60,7 @@ jobs:
           
       - name: Upload Windows build artifact
         if: ${{ inputs.buildWindows }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ksubdomain_Windows_amd64
           path: ksubdomain_windows.exe
@@ -90,7 +90,7 @@ jobs:
         run: go build -o ./ksubdomain_Darwin ./cmd/ksubdomain/
         
       - name: Upload Darwin build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ksubdomain_Darwin_amd64
           path: ksubdomain_Darwin
