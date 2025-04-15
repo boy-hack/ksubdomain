@@ -20,7 +20,7 @@ jobs:
 
       - name: Set up libpcap-dev
         if: matrix.os == 'ubuntu-22.04'
-        run: sudo apt-get install libpcap-dev gcc -y
+        run: sudo apt-get install libpcap-dev libdbus-1-dev gcc -y
 
 #      - name: Set up Darwin libpcap
 #        if: matrix.os == 'macos-latest'
@@ -37,7 +37,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -ldbus-1 -Wl,-Bdynamic"
       - name: Build On Darwin
         run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/ksubdomain/
         if: matrix.os == 'macos-13'
