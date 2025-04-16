@@ -67,7 +67,7 @@ KSubdomain 2.0 版本引入了多项底层优化，进一步压榨性能潜力�
 确保您已安装 Go 1.23 版本和 `libpcap` 环境。
 
 ```bash
-go install -v github.com/boy-hack/ksubdomain/cmd/ksubdomain@latest
+go install -v github.com/boy-hack/ksubdomain/v2/cmd/ksubdomain@latest
 # 二进制文件通常位于 $GOPATH/bin 或 $HOME/go/bin
 ```
 

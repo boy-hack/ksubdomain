@@ -6,14 +6,14 @@ import (
 	"math/rand"
 	"os"
 
-	core2 "github.com/boy-hack/ksubdomain/pkg/core"
-	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/pkg/core/ns"
-	"github.com/boy-hack/ksubdomain/pkg/core/options"
-	"github.com/boy-hack/ksubdomain/pkg/runner"
-	"github.com/boy-hack/ksubdomain/pkg/runner/outputter"
-	output2 "github.com/boy-hack/ksubdomain/pkg/runner/outputter/output"
-	processbar2 "github.com/boy-hack/ksubdomain/pkg/runner/processbar"
+	core2 "github.com/boy-hack/ksubdomain/v2/pkg/core"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/ns"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/v2/pkg/runner"
+	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
+	output2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter/output"
+	processbar2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
 )
 

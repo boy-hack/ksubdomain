@@ -1,9 +1,9 @@
 package options
 
 import (
-	core2 "github.com/boy-hack/ksubdomain/pkg/core"
-	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/pkg/device"
+	core2 "github.com/boy-hack/ksubdomain/v2/pkg/core"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/device"
 	"os"
 )
 
