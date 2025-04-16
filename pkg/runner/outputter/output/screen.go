@@ -3,9 +3,9 @@ package output
 import (
 	"strings"
 
-	"github.com/boy-hack/ksubdomain/pkg/core"
-	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/pkg/runner/result"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 
 type ScreenOutput struct {

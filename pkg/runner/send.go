@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/pkg/device"
-	"github.com/boy-hack/ksubdomain/pkg/runner/statusdb"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/device"
+	"github.com/boy-hack/ksubdomain/v2/pkg/runner/statusdb"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"

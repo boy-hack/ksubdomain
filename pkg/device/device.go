@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
 	"github.com/google/gopacket/pcap"
 	"gopkg.in/yaml.v3"
 )

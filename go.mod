@@ -1,8 +1,9 @@
-module github.com/boy-hack/ksubdomain
+module github.com/boy-hack/ksubdomain/v2
 
 go 1.23.0
 
 require (
+	github.com/StackExchange/wmi v1.2.1
 	github.com/google/gopacket v1.1.19
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-colorable v0.1.12
@@ -17,7 +18,6 @@ require (
 )
 
 require (
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
