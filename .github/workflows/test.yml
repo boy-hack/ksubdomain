@@ -1,56 +1,97 @@
 name: 🎉 Build Binary Test
 on:
   workflow_dispatch:
+    inputs:
+      buildLinux:
+        description: '构建Linux版本'
+        required: true
+        default: 'true'
+        type: boolean
+      buildMacOS:
+        description: '构建macOS版本'
+        required: true
+        default: 'true'
+        type: boolean
+      buildWindows:
+        description: '构建Windows版本'
+        required: true
+        default: 'true'
+        type: boolean
 jobs:
-
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-20.04
-          - macos-13
+  build-linux:
+    name: Build Linux
+    if: ${{ inputs.buildLinux }}
+    runs-on: ubuntu-22.04
     steps:
-      - name: Set up Go 1.17
-        uses: actions/setup-go@v1
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.17
+          go-version: '1.23'
         id: go
 
       - name: Set up libpcap-dev
-        if: matrix.os == 'ubuntu-20.04'
-        run: sudo apt-get install libpcap-dev gcc -y
-
-#      - name: Set up Darwin libpcap
-#        if: matrix.os == 'macos-latest'
-#        run: brew install libpcap
+        run: sudo apt-get install libpcap-dev libdbus-1-dev libsystemd-dev gcc -y
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get dependencies
         run: go mod download
 
       - name: Build On Linux
-        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/ksubdomain/
-        if: matrix.os == 'ubuntu-20.04'
+        run: go build -o ./ksubdomain_Linux ./cmd/ksubdomain/
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
-      - name: Build On Darwin
-        run: go build -o ./ksubdomain_${{ runner.os }} ./cmd/ksubdomain/
-        if: matrix.os == 'macos-13'
-      - name: Build On Windows
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic -ldbus-1 -lsystemd"
+          
+      - name: Build Windows on Linux
+        if: ${{ inputs.buildWindows }}
         run: go build -o ./ksubdomain_windows.exe ./cmd/ksubdomain/
-        if: matrix.os == 'ubuntu-20.04'
         env:
           GOOS: windows
           GOENABLE: 1
 
-      - name: Upload a build artifact
-        uses: actions/upload-artifact@v2
+      - name: Upload Linux build artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: ksubdomain_${{ runner.os }}_amd64
-          path: ksubdomain*
+          name: ksubdomain_Linux_amd64
+          path: ksubdomain_Linux
+          if-no-files-found: error
+          
+      - name: Upload Windows build artifact
+        if: ${{ inputs.buildWindows }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksubdomain_Windows_amd64
+          path: ksubdomain_windows.exe
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS
+    if: ${{ inputs.buildMacOS }}
+    runs-on: macos-13
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+        id: go
+
+      - name: Set up Darwin libpcap
+        run: brew install libpcap
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Get dependencies
+        run: go mod download
+        
+      - name: Build On Darwin
+        run: go build -o ./ksubdomain_Darwin ./cmd/ksubdomain/
+        
+      - name: Upload Darwin build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksubdomain_Darwin_amd64
+          path: ksubdomain_Darwin
           if-no-files-found: error

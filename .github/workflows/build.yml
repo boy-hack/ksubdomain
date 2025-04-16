@@ -3,40 +3,27 @@ on:
   create:
     tags:
       - v*
-  workflow_dispatch:
+
 jobs:
-
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - ubuntu-20.04
-          - macos-13
-          - macos-14
-
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-22.04
     steps:
-      - name: Set up Go 1.23
-        uses: actions/setup-go@v1
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.23
+          go-version: '1.23'
         id: go
-
-      - name: Set up dependencies on Ubuntu
-        if: matrix.os == 'ubuntu-20.04'
-        run: sudo apt-get update && sudo apt-get install libpcap-dev gcc zip -y
-
-      - name: Install zip on macOS
-        if: runner.os == 'macOS'
-        run: brew install zip
 
       - name: Get version
         id: get_version
         run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
 
+      - name: Set up dependencies
+        run: sudo apt-get update && sudo apt-get install libpcap-dev libdbus-1-dev libsystemd-dev gcc -y
+
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get dependencies
         run: go mod download
@@ -46,42 +33,108 @@ jobs:
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip ksubdomain
-        if: matrix.os == 'ubuntu-20.04'
         env:
           GOENABLE: 1
-          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic"
+          CGO_LDFLAGS: "-Wl,-static -L/usr/lib/x86_64-linux-gnu/libpcap.a -lpcap -Wl,-Bdynamic -ldbus-1 -lsystemd"
+          
+      - name: Build On Windows
+        run: |
+          go build -o ./ksubdomain.exe ./cmd/ksubdomain/
+          zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip ksubdomain.exe
+        env:
+          GOOS: windows
+          GOENABLE: 1
+          
+      - name: Release Linux and Windows
+        uses: softprops/action-gh-release@master
+        with:
+          files: |
+            KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip
+            KSubdomain-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip
+          fail_on_unmatched_files: true
+          token: ${{ secrets.TOKEN }}
+          append_body: true
+        env:
+          GITHUB_REPOSITORY: boy-hack/ksubdomain
+
+  build-macos-amd64:
+    name: Build macOS (amd64)
+    runs-on: macos-13
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+        id: go
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+
+      - name: Install zip
+        run: brew install zip
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Get dependencies
+        run: go mod download
+        
       - name: Build On Darwin amd64
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.zip ksubdomain
-        if: matrix.os == 'macos-13'
         env:
           GOOS: darwin
           GOARCH: amd64
+          
+      - name: Release macOS amd64
+        uses: softprops/action-gh-release@master
+        with:
+          files: KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.zip
+          fail_on_unmatched_files: true
+          token: ${{ secrets.TOKEN }}
+          append_body: true
+        env:
+          GITHUB_REPOSITORY: boy-hack/ksubdomain
+
+  build-macos-arm64:
+    name: Build macOS (arm64)
+    runs-on: macos-14
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+        id: go
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+
+      - name: Install zip
+        run: brew install zip
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Get dependencies
+        run: go mod download
+        
       - name: Build On Darwin arm64
         run: |
           go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.zip ksubdomain
-        if: matrix.os == 'macos-14'
         env:
           GOOS: darwin
           GOARCH: arm64
-      - name: Build On Windows
-        run: |
-          go build -o ./ksubdomain.exe ./cmd/ksubdomain/
-          zip KSubdomain-windows.zip ksubdomain.exe
-        if: matrix.os == 'ubuntu-20.04'
-        env:
-          GOOS: windows
-          GOENABLE: 1
-      - name: Release
+          
+      - name: Release macOS arm64
         uses: softprops/action-gh-release@master
         with:
-          # note you'll typically need to create a personal access token
-          # with permissions to create releases in the other repo
-          files: KSubdomain-*.zip
+          files: KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.zip
           fail_on_unmatched_files: true
           token: ${{ secrets.TOKEN }}
           append_body: true
