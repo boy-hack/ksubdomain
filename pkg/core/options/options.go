@@ -7,6 +7,7 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/processbar"
+	"github.com/google/gopacket/layers" // Added for layers.DNSType
 )
 
 type OptionMethod string
@@ -31,8 +32,12 @@ type Options struct {
 	SpecialResolvers   map[string][]string // 可针对特定域名使用的dns resolvers
 	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
 	WildIps            []string
-	Predict            bool // 是否开启预测模式
+	Predict            bool                 // 是否开启预测模式
+	QueryTypes         []layers.DNSType     // DNS查询类型列表
 }
+
+// DefaultQueryTypes Ksubdomain默认查询的DNS类型
+var DefaultQueryTypes = []layers.DNSType{layers.DNSTypeA}
 
 func Band2Rate(bandWith string) int64 {
 	suffix := string(bandWith[len(bandWith)-1])
@@ -80,5 +85,12 @@ func GetResolvers(resolvers []string) []string {
 func (opt *Options) Check() {
 	if opt.Silent {
 		gologger.MaxLevel = gologger.Silent
+	}
+	if opt.QueryTypes == nil || len(opt.QueryTypes) == 0 {
+		// This case should ideally be handled by the default value in flag definition
+		// or ensure parseQueryTypes always returns a default if input is empty post-flag parsing.
+		// For safety, we can still set a default here.
+		opt.QueryTypes = DefaultQueryTypes
+		gologger.Infof("QueryTypes is empty, using default value: A\n")
 	}
 }

@@ -18,31 +18,68 @@ import (
 
 // dnsRecord2String 将DNS记录转换为字符串
 func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
-	if rr.Class == layers.DNSClassIN {
-		switch rr.Type {
-		case layers.DNSTypeA, layers.DNSTypeAAAA:
-			if rr.IP != nil {
-				return rr.IP.String(), nil
-			}
-		case layers.DNSTypeNS:
-			if rr.NS != nil {
-				return "NS " + string(rr.NS), nil
-			}
-		case layers.DNSTypeCNAME:
-			if rr.CNAME != nil {
-				return "CNAME " + string(rr.CNAME), nil
-			}
-		case layers.DNSTypePTR:
-			if rr.PTR != nil {
-				return "PTR " + string(rr.PTR), nil
-			}
-		case layers.DNSTypeTXT:
-			if rr.TXT != nil {
-				return "TXT " + string(rr.TXT), nil
-			}
-		}
+	// We are primarily interested in IN class records.
+	if rr.Class != layers.DNSClassIN {
+		return "", fmt.Errorf("record class %s not supported", rr.Class.String())
 	}
-	return "", errors.New("dns record error")
+
+	switch rr.Type {
+	case layers.DNSTypeA:
+		if rr.IP == nil {
+			return "", errors.New("A record with nil IP")
+		}
+		return rr.IP.String(), nil
+	case layers.DNSTypeAAAA:
+		if rr.IP == nil {
+			return "", errors.New("AAAA record with nil IP")
+		}
+		return rr.IP.String(), nil
+	case layers.DNSTypeNS:
+		if rr.NS == nil {
+			return "", errors.New("NS record with nil NameServer")
+		}
+		return "NS " + string(rr.NS), nil
+	case layers.DNSTypeCNAME:
+		if rr.CNAME == nil {
+			return "", errors.New("CNAME record with nil CNAME")
+		}
+		return "CNAME " + string(rr.CNAME), nil
+	case layers.DNSTypePTR:
+		if rr.PTR == nil {
+			return "", errors.New("PTR record with nil PTR")
+		}
+		return "PTR " + string(rr.PTR), nil
+	case layers.DNSTypeTXT:
+		// TXT records can have multiple strings. Join them.
+		// rr.TXTs is the correct field according to gopacket documentation for multiple strings.
+		// rr.TXT is for a single string, kept for compatibility in some cases.
+		if rr.TXTs == nil && rr.TXT == nil {
+			return "", errors.New("TXT record with nil TXTs")
+		}
+		var txtStrings []string
+		if len(rr.TXTs) > 0 {
+			for _, txt := range rr.TXTs {
+				txtStrings = append(txtStrings, string(txt))
+			}
+		} else if rr.TXT != nil { // Fallback for single TXT entry
+			txtStrings = append(txtStrings, string(rr.TXT))
+		}
+		return "TXT " + strings.Join(txtStrings, " "), nil // Join multiple TXT parts with a space
+	case layers.DNSTypeMX:
+		if rr.MX.Name == nil {
+			return "", errors.New("MX record with nil Name")
+		}
+		return fmt.Sprintf("MX %d %s", rr.MX.Preference, string(rr.MX.Name)), nil
+	case layers.DNSTypeSOA:
+		if rr.SOA.MName == nil || rr.SOA.RName == nil {
+			return "", errors.New("SOA record with nil MName or RName")
+		}
+		// Basic SOA info, could be more detailed
+		return fmt.Sprintf("SOA %s %s %d %d %d %d %d", string(rr.SOA.MName), string(rr.SOA.RName), rr.SOA.Serial, rr.SOA.Refresh, rr.SOA.Retry, rr.SOA.Expire, rr.SOA.Minimum), nil
+	// Add other types as needed: SRV, CAA etc.
+	default:
+		return "", fmt.Errorf("unsupported DNS record type: %s", rr.Type.String())
+	}
 }
 
 // 预分配解码器对象池，避免频繁创建
@@ -183,8 +220,12 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 						return
 					}
 
-					subdomain := string(dns.Questions[0].Name)
-					r.statusDB.Del(subdomain)
+					question := dns.Questions[0]
+					subdomain := string(question.Name)
+					queryTypeStr := question.Type.String()
+					statusKey := subdomain + ":" + queryTypeStr
+					r.statusDB.Del(statusKey)
+
 					if dns.ANCount > 0 {
 						atomic.AddUint64(&r.successCount, 1)
 						var answers []string

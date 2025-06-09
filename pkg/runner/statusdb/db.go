@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/gopacket/layers" // Added for layers.DNSType
 )
 
 type Item struct {
@@ -13,6 +15,7 @@ type Item struct {
 	Time        time.Time // 发送时间
 	Retry       int       // 重试次数
 	DomainLevel int       // 域名层级
+	QueryType   layers.DNSType // DNS查询类型
 }
 
 // StatusDb 使用分片锁实现的高性能状态数据库

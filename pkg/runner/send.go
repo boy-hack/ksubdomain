@@ -102,25 +102,32 @@ var templateCache = newPacketTemplateCache()
 func (r *Runner) sendCycle() {
 	// 从发送通道接收域名，分发给工作协程
 	for domain := range r.domainChan {
-		r.rateLimiter.Take()
-		v, ok := r.statusDB.Get(domain)
-		if !ok {
-			v = statusdb.Item{
-				Domain:      domain,
-				Dns:         r.selectDNSServer(domain),
-				Time:        time.Now(),
-				Retry:       0,
-				DomainLevel: 0,
+		for _, queryType := range r.options.QueryTypes {
+			r.rateLimiter.Take() // Apply rate limit for each packet sent
+
+			statusDomainKey := domain + ":" + queryType.String()
+
+			v, ok := r.statusDB.Get(statusDomainKey)
+			if !ok {
+				v = statusdb.Item{
+					Domain:      domain, // Store base domain name
+					Dns:         r.selectDNSServer(domain),
+					Time:        time.Now(),
+					Retry:       0,
+					DomainLevel: 0,
+					QueryType:   queryType, // Store the specific query type
+				}
+				r.statusDB.Add(statusDomainKey, v)
+			} else {
+				v.Retry += 1
+				v.Time = time.Now()
+				v.Dns = r.selectDNSServer(domain)
+				v.QueryType = queryType // Ensure QueryType is updated on retry item
+				r.statusDB.Set(statusDomainKey, v)
 			}
-			r.statusDB.Add(domain, v)
-		} else {
-			v.Retry += 1
-			v.Time = time.Now()
-			v.Dns = r.selectDNSServer(domain)
-			r.statusDB.Set(domain, v)
+			send(domain, v.Dns, r.options.EtherInfo, r.dnsID, uint16(r.listenPort), r.pcapHandle, queryType)
+			atomic.AddUint64(&r.sendCount, 1)
 		}
-		send(domain, v.Dns, r.options.EtherInfo, r.dnsID, uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
-		atomic.AddUint64(&r.sendCount, 1)
 	}
 }
 

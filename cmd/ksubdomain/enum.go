@@ -15,6 +15,8 @@ import (
 	output2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter/output"
 	processbar2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/processbar"
 	"github.com/urfave/cli/v2"
+	"github.com/google/gopacket/layers" // Import for layers.DNSType
+	"strings"                           // Import for strings.Split and strings.ToUpper
 )
 
 var enumCommand = &cli.Command{
@@ -40,6 +42,12 @@ var enumCommand = &cli.Command{
 			Usage:   "指定域名列表文件",
 			Value:   "",
 		},
+		&cli.StringFlag{
+			Name:    "qtype",
+			Aliases: []string{"qt"},
+			Usage:   "Specify DNS query types (comma-separated: A,AAAA,CNAME,MX,TXT,NS)",
+			Value:   "A",
+		},
 	}...),
 	Action: func(c *cli.Context) error {
 		if c.NumFlags() == 0 {
@@ -48,6 +56,13 @@ var enumCommand = &cli.Command{
 		var domains []string
 		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
 		var err error
+
+		// Parse Query Types
+		queryTypesStr := c.String("qtype")
+		queryTypes, err := parseQueryTypes(queryTypesStr)
+		if err != nil {
+			gologger.Fatalf("Invalid query type string: %s. %v", queryTypesStr, err)
+		}
 
 		// handle domain
 		if c.StringSlice("domain") != nil {
@@ -180,6 +195,7 @@ var enumCommand = &cli.Command{
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			WildIps:            wildIPS,
 			Predict:            c.Bool("predict"),
+			QueryTypes:         queryTypes,
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig(defaultResolver)
@@ -193,4 +209,49 @@ var enumCommand = &cli.Command{
 		r.Close()
 		return nil
 	},
+}
+
+func parseQueryTypes(typeStr string) ([]layers.DNSType, error) {
+	parts := strings.Split(typeStr, ",")
+	var qTypes []layers.DNSType
+	seenTypes := make(map[layers.DNSType]bool)
+
+	for _, part := range parts {
+		trimmedPart := strings.TrimSpace(strings.ToUpper(part))
+		var qType layers.DNSType
+		switch trimmedPart {
+		case "A":
+			qType = layers.DNSTypeA
+		case "AAAA":
+			qType = layers.DNSTypeAAAA
+		case "CNAME":
+			qType = layers.DNSTypeCNAME
+		case "MX":
+			qType = layers.DNSTypeMX
+		case "TXT":
+			qType = layers.DNSTypeTXT
+		case "NS":
+			qType = layers.DNSTypeNS
+		// Add more types here as needed, e.g. SOA, SRV, CAA
+		default:
+			return nil, SystemError{Msg: "unsupported DNS query type: " + trimmedPart}
+		}
+		if !seenTypes[qType] {
+			qTypes = append(qTypes, qType)
+			seenTypes[qType] = true
+		}
+	}
+	if len(qTypes) == 0 {
+		return nil, SystemError{Msg: "no valid query types specified"}
+	}
+	return qTypes, nil
+}
+
+// SystemError 自定义错误类型
+type SystemError struct {
+	Msg string
+}
+
+func (e SystemError) Error() string {
+	return e.Msg
 }

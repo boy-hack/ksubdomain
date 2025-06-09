@@ -18,7 +18,9 @@ func (r *Runner) retry(ctx context.Context) {
 
 	// 用于批量发送的域名缓冲区
 	const batchSize = 100
-	retryDomains := make([]string, 0, batchSize)
+	// retryDomains will store the base domain names that need retrying.
+	// We will fetch the full Item from statusDB to get the base domain.
+	itemsToRetry := make([]statusdb.Item, 0, batchSize)
 
 	// 记录上次扫描时间，当数据库为空时可以更节约资源
 	lastScanEmpty := false
@@ -66,8 +68,8 @@ func (r *Runner) retry(ctx context.Context) {
 
 			// 当前时间
 			now := time.Now()
-			// 清空域名缓冲
-			retryDomains = retryDomains[:0]
+			// 清空待重试项目缓冲
+			itemsToRetry = itemsToRetry[:0]
 
 			// 清空分组缓冲
 			for k := range dnsBatches {
@@ -85,33 +87,37 @@ func (r *Runner) retry(ctx context.Context) {
 
 				// 检查是否超时
 				if int64(now.Sub(v.Time).Seconds()) >= r.timeoutSeconds {
-					// 将域名添加到重试列表，或者使用批量发送通道
-					retryDomains = append(retryDomains, key)
+					// 将项目添加到重试列表
+					itemsToRetry = append(itemsToRetry, v) // v is statusdb.Item
 
-					// 根据DNS服务器分组，以便批量发送
-					dns := r.selectDNSServer(key)
+					// The dnsBatches logic might need re-evaluation if it's essential.
+					// For now, ensuring correct domain goes to domainChan is priority.
+					// If selectDNSServer needs the base domain, it should be v.Domain.
+					dns := r.selectDNSServer(v.Domain) // Use base domain for DNS server selection
 					if _, ok := dnsBatches[dns]; !ok {
 						dnsBatches[dns] = make([]string, 0, batchSize)
 					}
+					// dnsBatches currently stores keys ("domain:type"). This might be fine if
+					// the consumer of dnsBatches is aware or if it's just for logging/grouping.
 					dnsBatches[dns] = append(dnsBatches[dns], key)
 				}
 				return nil
 			})
 
 			// 记录扫描状态
-			lastScanEmpty = len(retryDomains) == 0
+			lastScanEmpty = len(itemsToRetry) == 0
 
 			// 如果有需要重试的域名
-			if len(retryDomains) > 0 {
-				// 向工作协程发送重试域名
-				for _, domain := range retryDomains {
+			if len(itemsToRetry) > 0 {
+				// 向工作协程发送重试域名 (base domain names)
+				for _, item := range itemsToRetry {
 					// 非阻塞发送
 					select {
-					case retryDomainCh <- domain:
+					case retryDomainCh <- item.Domain: // Send base domain name
 						// 发送成功
 					default:
 						// 通道满了，直接发送
-						r.domainChan <- domain
+						r.domainChan <- item.Domain // Send base domain name
 					}
 				}
 			}
