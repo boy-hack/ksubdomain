@@ -108,7 +108,7 @@ var verifyCommand = &cli.Command{
 			cli.ShowCommandHelpAndExit(c, "verify", 0)
 		}
 		var domains []string
-		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
+		processBar := &processbar2.ScreenProcess{Silent: c.Bool("silent")}
 		if c.StringSlice("domain") != nil {
 			domains = append(domains, c.StringSlice("domain")...)
 		}

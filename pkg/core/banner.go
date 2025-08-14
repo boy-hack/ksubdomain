@@ -15,7 +15,9 @@ const banner = `
 
 `
 
-func ShowBanner() {
-	fmt.Printf(banner)
+func ShowBanner(silent bool) {
+	if !silent {
+		fmt.Printf(banner)
+	}
 	gologger.Infof("Current Version: %s\n", conf.Version)
 }
