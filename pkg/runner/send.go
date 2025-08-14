@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"net"
 	"strings"
 	"sync"
@@ -15,12 +16,6 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// packetTemplateCache 缓存DNS服务器的包模板
-type packetTemplateCache struct {
-	mu      sync.RWMutex
-	entries map[string]*packetTemplate
-}
-
 // packetTemplate DNS请求包模板
 type packetTemplate struct {
 	eth   *layers.Ethernet
@@ -31,20 +26,7 @@ type packetTemplate struct {
 	dnsip net.IP
 }
 
-func newPacketTemplateCache() *packetTemplateCache {
-	return &packetTemplateCache{
-		entries: make(map[string]*packetTemplate),
-	}
-}
-
-func (c *packetTemplateCache) getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *packetTemplate {
-	c.mu.RLock()
-	template, exists := c.entries[dnsname]
-	c.mu.RUnlock()
-
-	if exists {
-		return template
-	}
+func getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *packetTemplate {
 
 	// 创建新模板
 	DstIp := net.ParseIP(dnsname).To4()
@@ -76,7 +58,7 @@ func (c *packetTemplateCache) getOrCreate(dnsname string, ether *device.EtherTab
 
 	_ = udp.SetNetworkLayerForChecksum(ip)
 
-	template = &packetTemplate{
+	template := &packetTemplate{
 		eth:   eth,
 		ip:    ip,
 		udp:   udp,
@@ -88,15 +70,8 @@ func (c *packetTemplateCache) getOrCreate(dnsname string, ether *device.EtherTab
 		buf: gopacket.NewSerializeBuffer(),
 	}
 
-	c.mu.Lock()
-	c.entries[dnsname] = template
-	c.mu.Unlock()
-
 	return template
 }
-
-// 发送包的缓存
-var templateCache = newPacketTemplateCache()
 
 // sendCycle 实现发送域名请求的循环
 func (r *Runner) sendCycle() {
@@ -124,10 +99,45 @@ func (r *Runner) sendCycle() {
 	}
 }
 
+// sendCycleWithContext 实现带有context管理的发送域名请求循环
+func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	// 从发送通道接收域名，分发给工作协程
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case domain, ok := <-r.domainChan:
+			if !ok {
+				return
+			}
+			r.rateLimiter.Take()
+			v, ok := r.statusDB.Get(domain)
+			if !ok {
+				v = statusdb.Item{
+					Domain:      domain,
+					Dns:         r.selectDNSServer(domain),
+					Time:        time.Now(),
+					Retry:       0,
+					DomainLevel: 0,
+				}
+				r.statusDB.Add(domain, v)
+			} else {
+				v.Retry += 1
+				v.Time = time.Now()
+				v.Dns = r.selectDNSServer(domain)
+				r.statusDB.Set(domain, v)
+			}
+			send(domain, v.Dns, r.options.EtherInfo, r.dnsID, uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
+			atomic.AddUint64(&r.sendCount, 1)
+		}
+	}
+}
+
 // send 发送单个DNS查询包
 func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
 	// 复用DNS服务器的包模板
-	template := templateCache.getOrCreate(dnsname, ether, freeport)
+	template := getOrCreate(dnsname, ether, freeport)
 
 	// 从内存池获取DNS层对象
 	dns := GlobalMemPool.GetDNS()

@@ -207,15 +207,15 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
-	// 创建等待组
+	// 创建等待组，现在需要等待5个goroutine（添加了sendCycle和handleResult）
 	wg := &sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(5)
 
 	// 启动接收处理
 	go r.recvChanel(ctx, wg)
 
-	// 启动发送处理
-	go r.sendCycle()
+	// 启动发送处理（加入waitgroup管理）
+	go r.sendCycleWithContext(ctx, wg)
 
 	// 监控进度
 	go r.monitorProgress(ctx, cancelFunc, wg)
@@ -230,8 +230,8 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 		r.predictLoadDone <- struct{}{}
 	}
 
-	// 启动结果处理
-	go r.handleResult(predictChan)
+	// 启动结果处理（加入waitgroup管理）
+	go r.handleResultWithContext(ctx, wg, predictChan)
 
 	// 从源加载域名
 	go r.loadDomainsFromSource(wg)

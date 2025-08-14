@@ -46,7 +46,8 @@ var enumCommand = &cli.Command{
 			cli.ShowCommandHelpAndExit(c, "enum", 0)
 		}
 		var domains []string
-		var processBar processbar2.ProcessBar = &processbar2.ScreenProcess{}
+		processBar := &processbar2.ScreenProcess{Silent: c.Bool("silent")}
+
 		var err error
 
 		// handle domain

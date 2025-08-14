@@ -30,11 +30,9 @@ func (s *ScreenOutput) WriteDomainResult(domain result.Result) error {
 	msg = strings.Join(domains, " => ")
 	if !s.silent {
 		screenWidth := s.windowsWidth - len(msg) - 1
-		if s.windowsWidth > 0 && screenWidth > 0 {
-			gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
-		} else {
-			gologger.Silentf("\r%s\n", domain.Subdomain)
-		}
+		gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
+	} else {
+		gologger.Silentf("\r%s\n", msg)
 	}
 	return nil
 }

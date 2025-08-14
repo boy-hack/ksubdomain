@@ -13,6 +13,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestV(t *testing.T) {
+	for i := 0; i < 2; i++ {
+		domainChanel := make(chan string)
+		eth := options.GetDeviceConfig([]string{"114.114.114.114"})
+		domains := []string{"stu.baidu.com", "www.baidu.com"}
+		go func() {
+			for _, d := range domains {
+				domainChanel <- d
+			}
+			close(domainChanel)
+		}()
+		w, _ := output.NewScreenOutput(true)
+		opt := &options.Options{
+			Rate:      options.Band2Rate("1m"),
+			Domain:    domainChanel,
+			Resolvers: options.GetResolvers(nil),
+			Silent:    true,
+			TimeOut:   5,
+			Retry:     1,
+			Method:    options.VerifyType,
+			Writer: []outputter.Output{
+				w,
+			},
+			EtherInfo: eth,
+		}
+		opt.Check()
+		r, err := New(opt)
+		assert.NoError(t, err)
+		ctx := context.Background()
+		r.RunEnumeration(ctx)
+		r.Close()
+	}
+}
 func TestVerify(t *testing.T) {
 	process := processbar2.FakeScreenProcess{}
 	screenPrinter, _ := output.NewScreenOutputNoWidth(false)
