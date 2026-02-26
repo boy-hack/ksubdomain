@@ -465,3 +465,81 @@ jobs:
 ---
 
 **编写测试 = 保证质量 + 避免回归 + 提升信心** 🧪
+
+---
+
+## 🚀 性能基准测试 (Performance Benchmarks)
+
+### 10 万域名性能测试
+
+参考 README 中的性能对比,验证极速扫描能力。
+
+#### 测试目标 (README 标准)
+```
+字典大小: 100,000 域名
+带宽限制: 5M
+目标耗时: < 30 秒
+成功个数: > 1300
+工具对比: 比 massdns 快 7 倍, 比 dnsx 快 10 倍
+```
+
+#### 运行性能测试
+```bash
+# 需要 root 权限和网络
+sudo go test -tags=performance -bench=Benchmark100k ./test/ -timeout 10m -v
+
+# 自动化脚本 (推荐)
+sudo ./run_performance_test.sh
+
+# 运行所有规模的性能测试
+sudo go test -tags=performance -bench=. ./test/ -timeout 15m -v
+```
+
+#### 测试场景
+
+**1. 快速测试 (1,000 域名)**
+```bash
+go test -tags=performance -bench=Benchmark1k ./test/
+# 预期: < 2 秒
+```
+
+**2. 中等测试 (10,000 域名)**
+```bash
+go test -tags=performance -bench=Benchmark10k ./test/
+# 预期: < 5 秒
+```
+
+**3. 完整测试 (100,000 域名) - README 标准**
+```bash
+sudo go test -tags=performance -bench=Benchmark100k ./test/ -v
+# 预期: ~30 秒 (README 标准)
+```
+
+#### 性能指标
+
+测试会报告以下指标:
+```
+total_seconds    总耗时 (秒)
+success_count    成功解析的域名数
+success_rate_%   成功率 (百分比)
+domains/sec      扫描速率 (域名/秒)
+```
+
+#### 性能评估标准
+
+基于 README 的 10 万域名测试:
+```
+✅ 优秀:  < 30 秒 (达到 README 标准)
+✓  良好:  30-40 秒 (可接受)
+⚠️  警告:  40-60 秒 (需要优化)
+❌ 失败:  > 60 秒 (存在性能问题)
+```
+
+#### 详细文档
+
+参考 `test/PERFORMANCE_TEST.md` 了解:
+- 测试环境要求
+- 性能调优建议
+- 常见问题解决
+- 与其他工具对比
+
