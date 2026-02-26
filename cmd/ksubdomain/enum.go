@@ -138,7 +138,9 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 
-		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
+		// 修复 Issue #67: 支持 --only-domain 参数
+		onlyDomain := c.Bool("only-domain")
+		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"), onlyDomain)
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}

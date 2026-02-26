@@ -52,6 +52,12 @@ var commonFlags = []cli.Flag{
 		Usage: "使用后屏幕将仅输出域名",
 		Value: false,
 	},
+	&cli.BoolFlag{
+		Name:    "only-domain",
+		Aliases: []string{"od"},
+		Usage:   "只输出域名,不显示IP (修复 Issue #67)",
+		Value:   false,
+	},
 	&cli.IntFlag{
 		Name:  "retry",
 		Usage: "重试次数,当为-1时将一直重试",
@@ -144,7 +150,9 @@ var verifyCommand = &cli.Command{
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
+		// 修复 Issue #67: 支持 --only-domain 参数
+		onlyDomain := c.Bool("only-domain")
+		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"), onlyDomain)
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
