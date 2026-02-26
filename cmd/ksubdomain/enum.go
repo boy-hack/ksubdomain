@@ -20,24 +20,27 @@ import (
 var enumCommand = &cli.Command{
 	Name:    string(options.EnumType),
 	Aliases: []string{"e"},
-	Usage:   "枚举域名",
+	Usage:   "Enumeration mode: brute-force subdomains using dictionary",
 	Flags: append(commonFlags, []cli.Flag{
 		&cli.StringFlag{
 			Name:     "filename",
 			Aliases:  []string{"f"},
-			Usage:    "字典路径",
+			Usage:    "Subdomain dictionary file path",
 			Required: false,
 			Value:    "",
 		},
+		// Use NS records
+		// Internationalization: use-ns-records (recommended) replaces ns
 		&cli.BoolFlag{
-			Name:  "ns",
-			Usage: "读取域名ns记录并加入到ns解析器中",
-			Value: false,
+			Name:    "use-ns-records",
+			Aliases: []string{"ns"},
+			Usage:   "Query and use domain's NS records as DNS resolvers [Recommended: use --use-ns-records]",
+			Value:   false,
 		},
 		&cli.StringFlag{
 			Name:    "domain-list",
 			Aliases: []string{"ds"},
-			Usage:   "指定域名列表文件",
+			Usage:   "Domain list file for batch enumeration",
 			Value:   "",
 		},
 	}...),
@@ -118,7 +121,13 @@ var enumCommand = &cli.Command{
 		// 取域名的dns,加入到resolver中
 		specialDns := make(map[string][]string)
 		defaultResolver := options.GetResolvers(c.StringSlice("resolvers"))
-		if c.Bool("ns") {
+		// Support both old (ns) and new (use-ns-records) parameter names
+		useNS := c.Bool("use-ns-records")
+		if !useNS {
+			useNS = c.Bool("ns")
+		}
+		
+		if useNS {
 			for _, domain := range domains {
 				nsServers, ips, err := ns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
 				if err != nil {
@@ -129,12 +138,12 @@ var enumCommand = &cli.Command{
 			}
 
 		}
-		if c.Bool("not-print") {
+		if c.Bool("quiet") {
 			processBar = nil
 		}
 
 		// 输出到屏幕
-		if c.Bool("not-print") {
+		if c.Bool("quiet") {
 			processBar = nil
 		}
 
@@ -154,13 +163,22 @@ var enumCommand = &cli.Command{
 			gologger.Fatalf(err.Error())
 		}
 		var writer []outputter.Output
-		if !c.Bool("not-print") {
+		if !c.Bool("quiet") {
 			writer = append(writer, screenWriter)
 		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
-			outputType := c.String("output-type")
-			wildFilterMode := c.String("wild-filter-mode")
+			
+			// Support both old and new parameter names
+			outputType := c.String("format")
+			if outputType == "" || outputType == "txt" {
+				outputType = c.String("output-type")
+			}
+			
+			wildFilterMode := c.String("wildcard-filter")
+			if wildFilterMode == "" || wildFilterMode == "none" {
+				wildFilterMode = c.String("wild-filter-mode")
+			}
 			switch outputType {
 			case "txt":
 				p, err := output2.NewPlainOutput(outputFile, wildFilterMode)
@@ -185,8 +203,14 @@ var enumCommand = &cli.Command{
 				gologger.Fatalf("输出类型错误:%s 暂不支持 (支持: txt, json, csv, jsonl)", outputType)
 			}
 		}
+		// Support both old (band) and new (bandwidth) parameter names
+		bandwidthValue := c.String("bandwidth")
+		if bandwidthValue == "" || bandwidthValue == "3m" {
+			bandwidthValue = c.String("band")
+		}
+		
 		opt := &options.Options{
-			Rate:               options.Band2Rate(c.String("band")),
+			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
 			Resolvers:          defaultResolver,
 			Silent:             c.Bool("silent"),

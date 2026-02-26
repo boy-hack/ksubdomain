@@ -15,88 +15,123 @@ import (
 )
 
 var commonFlags = []cli.Flag{
+	// Target domain(s)
 	&cli.StringSliceFlag{
 		Name:    "domain",
 		Aliases: []string{"d"},
-		Usage:   "域名",
+		Usage:   "Target domain(s) to scan",
 	},
+	
+	// Network bandwidth limit
+	// Internationalization: bandwidth (recommended) replaces band (kept for compatibility)
 	&cli.StringFlag{
-		Name:     "band",
-		Aliases:  []string{"b"},
-		Usage:    "宽带的下行速度，可以5M,5K,5G",
+		Name:     "bandwidth",
+		Aliases:  []string{"band", "b"},
+		Usage:    "Network bandwidth limit (e.g., 5m=5Mbps, 10m=10Mbps, 100m=100Mbps) [Recommended: use --bandwidth]",
 		Required: false,
 		Value:    "3m",
 	},
+	
+	// DNS resolvers
 	&cli.StringSliceFlag{
 		Name:     "resolvers",
 		Aliases:  []string{"r"},
-		Usage:    "dns服务器，默认会使用内置dns",
+		Usage:    "DNS resolver servers (e.g., 8.8.8.8, 1.1.1.1), uses built-in resolvers by default",
 		Required: false,
 	},
+	
+	// Output file
 	&cli.StringFlag{
 		Name:     "output",
 		Aliases:  []string{"o"},
-		Usage:    "输出文件名",
+		Usage:    "Output file path",
 		Required: false,
 		Value:    "",
 	},
+	
+	// Output format
+	// Internationalization: format (recommended) replaces output-type (kept for compatibility)
 	&cli.StringFlag{
-		Name:     "output-type",
-		Aliases:  []string{"oy"},
-		Usage:    "输出文件类型: json, txt, csv",
+		Name:     "format",
+		Aliases:  []string{"output-type", "oy", "f"},
+		Usage:    "Output format: txt (default), json, csv, jsonl [Recommended: use --format or -f]",
 		Required: false,
 		Value:    "txt",
 	},
+	
+	// Silent mode
 	&cli.BoolFlag{
 		Name:  "silent",
-		Usage: "使用后屏幕将仅输出域名",
+		Usage: "Silent mode: only output domain names to screen",
 		Value: false,
 	},
+	
+	// Colorized output
 	&cli.BoolFlag{
 		Name:    "color",
 		Aliases: []string{"c"},
 		Usage:   "Enable colorized output (beautified mode)",
 		Value:   false,
 	},
+	
+	// Beautified output
 	&cli.BoolFlag{
 		Name:  "beautify",
-		Usage: "Enable beautified output with colors and summary",
+		Usage: "Enable beautified output with colors and summary statistics",
 		Value: false,
 	},
+	
+	// Retry count
 	&cli.IntFlag{
 		Name:  "retry",
-		Usage: "重试次数,当为-1时将一直重试",
+		Usage: "Retry count for failed queries (-1 for infinite retries)",
 		Value: 3,
 	},
+	
+	// Timeout
 	&cli.IntFlag{
 		Name:  "timeout",
-		Usage: "超时时间",
+		Usage: "Timeout in seconds for each DNS query",
 		Value: 6,
 	},
+	
+	// Read from stdin
 	&cli.BoolFlag{
 		Name:  "stdin",
-		Usage: "接受stdin输入",
+		Usage: "Read domains from standard input (pipe)",
 		Value: false,
 	},
+	
+	// Suppress screen output
+	// Internationalization: quiet (recommended) replaces not-print (kept for compatibility)
 	&cli.BoolFlag{
-		Name:    "not-print",
-		Aliases: []string{"np"},
-		Usage:   "不打印域名结果",
+		Name:    "quiet",
+		Aliases: []string{"not-print", "np", "q", "no-output"},
+		Usage:   "Suppress screen output (save to file only) [Recommended: use --quiet or -q]",
 		Value:   false,
 	},
+	
+	// Network interface
+	// Internationalization: interface (recommended) replaces eth (kept for compatibility)
 	&cli.StringFlag{
-		Name:    "eth",
-		Aliases: []string{"e"},
-		Usage:   "指定网卡名称",
+		Name:    "interface",
+		Aliases: []string{"eth", "e", "i"},
+		Usage:   "Network interface name (e.g., eth0, en0, wlan0) [Recommended: use --interface]",
 	},
+	
+	// Wildcard filter
+	// Internationalization: wildcard-filter (recommended) replaces wild-filter-mode
 	&cli.StringFlag{
-		Name:  "wild-filter-mode",
-		Usage: "泛解析过滤模式[从最终结果过滤泛解析域名]: basic(基础), advanced(高级), none(不过滤)",
-		Value: "none",
+		Name:    "wildcard-filter",
+		Aliases: []string{"wild-filter-mode", "wf"},
+		Usage:   "Wildcard DNS filtering mode: none (default), basic, advanced [Recommended: use --wildcard-filter]",
+		Value:   "none",
 	},
+	
+	// Prediction mode
 	&cli.BoolFlag{
 		Name:     "predict",
-		Usage:    "启用预测域名模式",
+		Usage:    "Enable AI-powered subdomain prediction",
 		Required: false,
 	},
 }
@@ -104,12 +139,12 @@ var commonFlags = []cli.Flag{
 var verifyCommand = &cli.Command{
 	Name:    string(options.VerifyType),
 	Aliases: []string{"v"},
-	Usage:   "验证模式",
+	Usage:   "Verification mode: verify domain list for DNS resolution",
 	Flags: append([]cli.Flag{
 		&cli.StringFlag{
 			Name:     "filename",
 			Aliases:  []string{"f"},
-			Usage:    "验证域名的文件路径",
+			Usage:    "Domain list file path (one domain per line)",
 			Required: false,
 			Value:    "",
 		},
@@ -152,7 +187,7 @@ var verifyCommand = &cli.Command{
 		}()
 
 		// 输出到屏幕
-		if c.Bool("not-print") {
+		if c.Bool("quiet") {
 			processBar = nil
 		}
 		
@@ -172,13 +207,22 @@ var verifyCommand = &cli.Command{
 			gologger.Fatalf(err.Error())
 		}
 		var writer []outputter.Output
-		if !c.Bool("not-print") {
+		if !c.Bool("quiet") {
 			writer = append(writer, screenWriter)
 		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
-			outputType := c.String("output-type")
-			wildFilterMode := c.String("wild-filter-mode")
+			
+			// Support both old and new parameter names
+			outputType := c.String("format")
+			if outputType == "" || outputType == "txt" {
+				outputType = c.String("output-type")
+			}
+			
+			wildFilterMode := c.String("wildcard-filter")
+			if wildFilterMode == "" || wildFilterMode == "none" {
+				wildFilterMode = c.String("wild-filter-mode")
+			}
 			switch outputType {
 			case "txt":
 				p, err := output2.NewPlainOutput(outputFile, wildFilterMode)
@@ -204,8 +248,16 @@ var verifyCommand = &cli.Command{
 			}
 		}
 		resolver := options.GetResolvers(c.StringSlice("resolvers"))
+		
+		// Support both old (band) and new (bandwidth) parameter names
+		bandwidthValue := c.String("bandwidth")
+		if bandwidthValue == "" || bandwidthValue == "3m" {
+			// Fallback to old parameter for compatibility
+			bandwidthValue = c.String("band")
+		}
+		
 		opt := &options.Options{
-			Rate:               options.Band2Rate(c.String("band")),
+			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
 			Resolvers:          resolver,
 			Silent:             c.Bool("silent"),
