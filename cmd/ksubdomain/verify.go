@@ -64,8 +64,7 @@ var commonFlags = []cli.Flag{
 		Name:  "silent",
 		Usage: "Silent mode: only output domain names to screen",
 		Value: false,
-	},
-	
+	},	
 	// Colorized output
 	&cli.BoolFlag{
 		Name:    "color",
@@ -80,8 +79,12 @@ var commonFlags = []cli.Flag{
 		Usage: "Enable beautified output with colors and summary statistics",
 		Value: false,
 	},
-	
-	// Retry count
+	&cli.BoolFlag{
+		Name:    "only-domain",
+		Aliases: []string{"od"},
+		Usage:   "只输出域名,不显示IP (修复 Issue #67)",
+		Value:   false,
+	},
 	&cli.IntFlag{
 		Name:  "retry",
 		Usage: "Retry count for failed queries (-1 for infinite retries)",
@@ -202,7 +205,6 @@ var verifyCommand = &cli.Command{
 		} else {
 			screenWriter, err = output2.NewScreenOutput(c.Bool("silent"))
 		}
-		
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}

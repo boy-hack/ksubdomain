@@ -16,7 +16,56 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
+// parseDNSName 解析 DNS 域名格式
+// DNS 域名格式: 长度前缀 + 标签 + ... + 结束符
+// 例如: \x03www\x06google\x03com\x00 表示 www.google.com
+// 修复 Issue #70: 正确解析 CNAME/NS/PTR 等记录,避免出现 "comcom" 等拼接错误
+func parseDNSName(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	
+	var result []byte
+	i := 0
+	
+	for i < len(raw) {
+		// 读取标签长度
+		length := int(raw[i])
+		
+		// 0x00 表示域名结束
+		if length == 0 {
+			break
+		}
+		
+		// 0xC0 开头表示压缩指针 (RFC 1035)
+		// 压缩格式: 前2位为11,后14位为偏移量
+		if length >= 0xC0 {
+			// 压缩指针,暂不处理(通常在完整DNS包中才有)
+			break
+		}
+		
+		// 添加点分隔符 (第一个标签除外)
+		if len(result) > 0 {
+			result = append(result, '.')
+		}
+		
+		i++
+		
+		// 防止越界
+		if i+length > len(raw) {
+			break
+		}
+		
+		// 添加标签内容
+		result = append(result, raw[i:i+length]...)
+		i += length
+	}
+	
+	return string(result)
+}
+
 // dnsRecord2String 将DNS记录转换为字符串
+// 修复 Issue #70: 使用 parseDNSName 正确解析域名格式
 func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	if rr.Class == layers.DNSClassIN {
 		switch rr.Type {
@@ -26,18 +75,31 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 			}
 		case layers.DNSTypeNS:
 			if rr.NS != nil {
-				return "NS " + string(rr.NS), nil
+				// 修复: 使用 parseDNSName 解析 NS 记录
+				ns := parseDNSName(rr.NS)
+				if ns != "" {
+					return "NS " + ns, nil
+				}
 			}
 		case layers.DNSTypeCNAME:
 			if rr.CNAME != nil {
-				return "CNAME " + string(rr.CNAME), nil
+				// 修复: 使用 parseDNSName 解析 CNAME 记录
+				cname := parseDNSName(rr.CNAME)
+				if cname != "" {
+					return "CNAME " + cname, nil
+				}
 			}
 		case layers.DNSTypePTR:
 			if rr.PTR != nil {
-				return "PTR " + string(rr.PTR), nil
+				// 修复: 使用 parseDNSName 解析 PTR 记录
+				ptr := parseDNSName(rr.PTR)
+				if ptr != "" {
+					return "PTR " + ptr, nil
+				}
 			}
 		case layers.DNSTypeTXT:
 			if rr.TXT != nil {
+				// TXT 记录是纯文本,不需要解析
 				return "TXT " + string(rr.TXT), nil
 			}
 		}
