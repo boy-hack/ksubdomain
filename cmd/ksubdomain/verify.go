@@ -52,6 +52,17 @@ var commonFlags = []cli.Flag{
 		Usage: "使用后屏幕将仅输出域名",
 		Value: false,
 	},
+	&cli.BoolFlag{
+		Name:    "color",
+		Aliases: []string{"c"},
+		Usage:   "Enable colorized output (beautified mode)",
+		Value:   false,
+	},
+	&cli.BoolFlag{
+		Name:  "beautify",
+		Usage: "Enable beautified output with colors and summary",
+		Value: false,
+	},
 	&cli.IntFlag{
 		Name:  "retry",
 		Usage: "重试次数,当为-1时将一直重试",
@@ -144,7 +155,19 @@ var verifyCommand = &cli.Command{
 		if c.Bool("not-print") {
 			processBar = nil
 		}
-		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
+		
+		var screenWriter outputter.Output
+		var err error
+		
+		// 美化输出模式
+		if c.Bool("beautify") || c.Bool("color") {
+			useColor := c.Bool("color") || c.Bool("beautify")
+			onlyDomain := c.Bool("only-domain")
+			screenWriter, err = output2.NewBeautifiedOutput(c.Bool("silent"), useColor, onlyDomain)
+		} else {
+			screenWriter, err = output2.NewScreenOutput(c.Bool("silent"))
+		}
+		
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}

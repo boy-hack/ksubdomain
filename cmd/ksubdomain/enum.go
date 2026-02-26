@@ -138,7 +138,18 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 
-		screenWriter, err := output2.NewScreenOutput(c.Bool("silent"))
+		var screenWriter outputter.Output
+		var err error
+		
+		// 美化输出模式
+		if c.Bool("beautify") || c.Bool("color") {
+			useColor := c.Bool("color") || c.Bool("beautify")
+			onlyDomain := c.Bool("only-domain")
+			screenWriter, err = output2.NewBeautifiedOutput(c.Bool("silent"), useColor, onlyDomain)
+		} else {
+			screenWriter, err = output2.NewScreenOutput(c.Bool("silent"))
+		}
+		
 		if err != nil {
 			gologger.Fatalf(err.Error())
 		}
