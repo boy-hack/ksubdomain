@@ -8,12 +8,15 @@ import (
 )
 
 // MemoryPool 实现内存对象池
-// 用于复用频繁分配的对象，减少GC压力
+// 优化点5: 对象池复用策略优化
+// 用途: 复用频繁分配的对象(DNS层、序列化缓冲区、切片)
+// 收益: 减少内存分配次数和GC压力,降低延迟
+// 关键: 归还前必须重置对象状态,避免数据污染
 type MemoryPool struct {
-	dnsPool      sync.Pool
-	bufPool      sync.Pool
-	questionPool sync.Pool
-	answerPool   sync.Pool
+	dnsPool      sync.Pool // DNS查询/响应层对象池
+	bufPool      sync.Pool // gopacket序列化缓冲区池
+	questionPool sync.Pool // DNS问题切片池
+	answerPool   sync.Pool // DNS应答切片池
 }
 
 // 全局内存池实例
@@ -49,21 +52,25 @@ func NewMemoryPool() *MemoryPool {
 }
 
 // GetDNS 获取一个DNS对象
+// 注意: 从池中获取的对象可能包含旧数据,必须重置所有字段
 func (p *MemoryPool) GetDNS() *layers.DNS {
 	dns := p.dnsPool.Get().(*layers.DNS)
+	// 重置切片长度(保留底层数组容量)
 	dns.Questions = dns.Questions[:0]
 	dns.Answers = dns.Answers[:0]
+	// nil 掉不常用字段,避免内存泄漏
 	dns.Authorities = nil
 	dns.Additionals = nil
+	// 重置所有标志位为默认值
 	dns.ID = 0
-	dns.QR = false
-	dns.OpCode = 0
-	dns.AA = false
-	dns.TC = false
-	dns.RD = true
-	dns.RA = false
-	dns.Z = 0
-	dns.ResponseCode = 0
+	dns.QR = false      // 查询报文
+	dns.OpCode = 0      // 标准查询
+	dns.AA = false      // 非权威应答
+	dns.TC = false      // 未截断
+	dns.RD = true       // 期望递归
+	dns.RA = false      // 递归不可用
+	dns.Z = 0           // 保留位
+	dns.ResponseCode = 0 // 无错误
 	dns.QDCount = 0
 	dns.ANCount = 0
 	dns.NSCount = 0

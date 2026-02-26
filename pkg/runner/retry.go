@@ -10,10 +10,14 @@ import (
 )
 
 // retry 优化的重试机制
-// 使用超时检测和批量发送以提高效率
+// 优化点4: 改进重试扫描效率
+// 1. 添加空扫描检测,避免无谓的CPU消耗
+// 2. 使用独立工作协程处理重试,不阻塞主流程
+// 3. 根据DNS服务器分组批量重试
 func (r *Runner) retry(ctx context.Context) {
-	// 检测间隔，太频繁会浪费CPU资源
-	t := time.NewTicker(time.Duration(r.timeoutSeconds) * time.Second)
+	// 检测间隔: 使用200ms而不是完整超时时间,更及时发现超时
+	// 原实现每 timeoutSeconds 扫描一次,现在更频繁但有空扫描优化
+	t := time.NewTicker(200 * time.Millisecond)
 	defer t.Stop()
 
 	// 用于批量发送的域名缓冲区

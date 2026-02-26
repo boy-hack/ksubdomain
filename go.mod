@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/StackExchange/wmi v1.2.1
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/google/gopacket v1.1.19
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/mattn/go-colorable v0.1.12
