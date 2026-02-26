@@ -126,7 +126,7 @@ var enumCommand = &cli.Command{
 		if !useNS {
 			useNS = c.Bool("ns")
 		}
-		
+
 		if useNS {
 			for _, domain := range domains {
 				nsServers, ips, err := ns.LookupNS(domain, defaultResolver[rand.Intn(len(defaultResolver))])
@@ -147,8 +147,7 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 		var screenWriter outputter.Output
-		var err error
-		
+
 		// 美化输出模式
 		if c.Bool("beautify") || c.Bool("color") {
 			useColor := c.Bool("color") || c.Bool("beautify")
@@ -166,13 +165,13 @@ var enumCommand = &cli.Command{
 		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
-			
+
 			// Support both old and new parameter names
 			outputType := c.String("format")
 			if outputType == "" || outputType == "txt" {
 				outputType = c.String("output-type")
 			}
-			
+
 			wildFilterMode := c.String("wildcard-filter")
 			if wildFilterMode == "" || wildFilterMode == "none" {
 				wildFilterMode = c.String("wild-filter-mode")
@@ -206,7 +205,7 @@ var enumCommand = &cli.Command{
 		if bandwidthValue == "" || bandwidthValue == "3m" {
 			bandwidthValue = c.String("band")
 		}
-		
+
 		opt := &options.Options{
 			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
