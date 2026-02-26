@@ -75,6 +75,15 @@ func New(opt *options.Options) (*Runner, error) {
 	// 设置速率限制
 	cpuLimit := float64(runtime.NumCPU() * 10000)
 	rateLimit := int(math.Min(cpuLimit, float64(opt.Rate)))
+	
+	// Mac 平台优化: BPF 缓冲区限制较严格
+	// 建议速率 < 50000 pps 以避免缓冲区溢出
+	if runtime.GOOS == "darwin" && rateLimit > 50000 {
+		gologger.Warningf("Mac 平台检测到: 当前速率 %d pps 可能导致缓冲区问题\n", rateLimit)
+		gologger.Warningf("建议: 使用 -b 参数限制带宽 (如 -b 5m) 或降低速率\n")
+		gologger.Warningf("提示: Mac BPF 缓冲区已优化至 2MB,但仍建议速率 < 50000 pps\n")
+	}
+	
 	r.rateLimiter = ratelimit.New(rateLimit)
 	gologger.Infof("速率限制: %d pps\n", rateLimit)
 

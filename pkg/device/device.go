@@ -69,13 +69,52 @@ func isDeviceUp(devicename string) bool {
 
 // PcapInit 初始化pcap句柄
 // 修复 Issue #68: 增强错误提示,特别是 WSL2 环境
+// 修复 Mac 缓冲区问题: 使用 InactiveHandle 设置更大的缓冲区
 func PcapInit(devicename string) (*pcap.Handle, error) {
-	var (
-		snapshot_len int32         = 1024
-		timeout      time.Duration = -1 * time.Second
-	)
+	// 使用 InactiveHandle 可以在激活前设置参数
+	// 这对 Mac BPF 缓冲区优化特别重要
+	inactive, err := pcap.NewInactiveHandle(devicename)
+	if err != nil {
+		gologger.Fatalf("创建 pcap 句柄失败: %s\n", err.Error())
+		return nil, err
+	}
+	defer inactive.CleanUp()
 	
-	handle, err := pcap.OpenLive(devicename, snapshot_len, false, timeout)
+	// 设置 snapshot 长度为 64KB (原来 1024 太小)
+	// DNS 包通常 < 512 字节,但完整以太网帧可能更大
+	err = inactive.SetSnapLen(65536)
+	if err != nil {
+		gologger.Warningf("设置 SnapLen 失败: %v\n", err)
+	}
+	
+	// 设置超时为阻塞模式
+	err = inactive.SetTimeout(-1 * time.Second)
+	if err != nil {
+		gologger.Warningf("设置 Timeout 失败: %v\n", err)
+	}
+	
+	// Mac 平台专用优化: 增大 BPF 缓冲区
+	// Mac 默认 BPF 缓冲区很小 (通常 32KB),高速发包容易溢出
+	// 设置为 2MB 可显著减少 "No buffer space available" 错误
+	if runtime.GOOS == "darwin" {
+		bufferSize := 2 * 1024 * 1024  // 2MB
+		err = inactive.SetBufferSize(bufferSize)
+		if err != nil {
+			gologger.Warningf("Mac: 设置 BPF 缓冲区大小失败: %v (将使用默认值)\n", err)
+		} else {
+			gologger.Infof("Mac: BPF 缓冲区已设置为 %d MB\n", bufferSize/(1024*1024))
+		}
+	}
+	
+	// 设置即时模式 (减少延迟)
+	err = inactive.SetImmediateMode(true)
+	if err != nil {
+		// 即时模式失败不致命,某些平台可能不支持
+		gologger.Debugf("设置即时模式失败: %v (非致命)\n", err)
+	}
+	
+	// 激活句柄
+	handle, err := inactive.Activate()
 	if err != nil {
 		// 修复 Issue #68: 提供详细的错误信息和解决方案
 		errMsg := err.Error()

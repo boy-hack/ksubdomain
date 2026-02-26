@@ -176,14 +176,39 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	}
 
 	// 发送数据包
-	err = handle.WritePacketData(buf.Bytes())
-	if err == nil {
+	// 修复 Mac 缓冲区问题: 增加重试机制,使用指数退避
+	const maxRetries = 3
+	for retry := 0; retry < maxRetries; retry++ {
+		err = handle.WritePacketData(buf.Bytes())
+		if err == nil {
+			return  // 发送成功
+		}
+		
+		errMsg := err.Error()
+		
+		// 检查是否为缓冲区错误 (Mac/Linux 常见)
+		// Mac BPF: "No buffer space available" (ENOBUFS)
+		// Linux: 可能有类似错误
+		isBufferError := strings.Contains(errMsg, "No buffer space available") ||
+			strings.Contains(errMsg, "ENOBUFS") ||
+			strings.Contains(errMsg, "buffer")
+		
+		if isBufferError {
+			// 缓冲区满,需要重试
+			if retry < maxRetries-1 {
+				// 指数退避: 10ms, 20ms, 40ms
+				backoff := time.Millisecond * time.Duration(10*(1<<uint(retry)))
+				time.Sleep(backoff)
+				continue  // 重试
+			} else {
+				// 最后一次重试也失败,放弃该包
+				// 不打印警告,避免刷屏 (在高速模式下很正常)
+				return
+			}
+		}
+		
+		// 其他错误 (非缓冲区问题),不重试
+		gologger.Warningf("WritePacketData error: %s\n", errMsg)
 		return
 	}
-	// 如果是缓冲区错误，等待一段时间后重试
-	if strings.Contains(err.Error(), "No buffer space available") {
-		time.Sleep(time.Millisecond * 10)
-		return
-	}
-	gologger.Warningf("WritePacketDate error:%s\n", err.Error())
 }
