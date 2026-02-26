@@ -163,8 +163,15 @@ var enumCommand = &cli.Command{
 			case "csv":
 				p := output2.NewCsvOutput(outputFile, wildFilterMode)
 				writer = append(writer, p)
+			case "jsonl":
+				// JSONL (JSON Lines) format: One JSON per line for streaming
+				p, err := output2.NewJSONLOutput(outputFile)
+				if err != nil {
+					gologger.Fatalf(err.Error())
+				}
+				writer = append(writer, p)
 			default:
-				gologger.Fatalf("输出类型错误:%s 暂不支持", outputType)
+				gologger.Fatalf("输出类型错误:%s 暂不支持 (支持: txt, json, csv, jsonl)", outputType)
 			}
 		}
 		opt := &options.Options{

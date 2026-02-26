@@ -169,8 +169,15 @@ var verifyCommand = &cli.Command{
 			case "csv":
 				p := output2.NewCsvOutput(outputFile, wildFilterMode)
 				writer = append(writer, p)
+			case "jsonl":
+				// JSONL (JSON Lines) 格式: 每行一个 JSON,便于流式处理
+				p, err := output2.NewJSONLOutput(outputFile)
+				if err != nil {
+					gologger.Fatalf(err.Error())
+				}
+				writer = append(writer, p)
 			default:
-				gologger.Fatalf("输出类型错误:%s 暂不支持", outputType)
+				gologger.Fatalf("输出类型错误:%s 暂不支持 (支持: txt, json, csv, jsonl)", outputType)
 			}
 		}
 		resolver := options.GetResolvers(c.StringSlice("resolvers"))
