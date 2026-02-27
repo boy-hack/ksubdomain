@@ -68,7 +68,7 @@ var enumCommand = &cli.Command{
 			filename := c.String("domain-list")
 			f, err := os.Open(filename)
 			if err != nil {
-				gologger.Fatalf("打开文件:%s 出现错误:%s", filename, err.Error())
+				gologger.Fatalf("Failed to open file %s: %s", filename, err.Error())
 			}
 			defer f.Close()
 			scanner := bufio.NewScanner(f)
@@ -85,7 +85,7 @@ var enumCommand = &cli.Command{
 				ok, ips := runner.IsWildCard(sub)
 				if ok {
 					wildIPS = append(wildIPS, ips...)
-					gologger.Infof("发现泛解析域名:%s", sub)
+					gologger.Infof("Wildcard domain detected: %s", sub)
 				}
 			}
 		}
@@ -105,7 +105,7 @@ var enumCommand = &cli.Command{
 			} else {
 				f2, err := os.Open(filename)
 				if err != nil {
-					gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+					gologger.Fatalf("Failed to open file %s: %s", c.String("filename"), err.Error())
 				}
 				defer f2.Close()
 				iofile := bufio.NewScanner(f2)
@@ -118,7 +118,7 @@ var enumCommand = &cli.Command{
 				}
 			}
 		}()
-		// 取域名的dns,加入到resolver中
+		// Load domain's DNS records, add to resolver list
 		specialDns := make(map[string][]string)
 		defaultResolver := options.GetResolvers(c.StringSlice("resolvers"))
 		// Support both old (ns) and new (use-ns-records) parameter names
@@ -142,13 +142,13 @@ var enumCommand = &cli.Command{
 			processBar = nil
 		}
 
-		// 输出到屏幕
+		// Output to screen
 		if c.Bool("quiet") {
 			processBar = nil
 		}
 		var screenWriter outputter.Output
 
-		// 美化输出模式
+		// Beautified output mode
 		if c.Bool("beautify") || c.Bool("color") {
 			useColor := c.Bool("color") || c.Bool("beautify")
 			onlyDomain := c.Bool("only-domain")
@@ -197,7 +197,7 @@ var enumCommand = &cli.Command{
 				}
 				writer = append(writer, p)
 			default:
-				gologger.Fatalf("输出类型错误:%s 暂不支持 (支持: txt, json, csv, jsonl)", outputType)
+				gologger.Fatalf("Unsupported output type: %s (supported: txt, json, csv, jsonl)", outputType)
 			}
 		}
 		// Support both old (band) and new (bandwidth) parameter names

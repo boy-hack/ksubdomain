@@ -9,31 +9,31 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/statusdb"
 )
 
-// retry 优化的重试机制
-// 优化点4: 改进重试扫描效率
-// 1. 添加空扫描检测,避免无谓的CPU消耗
-// 2. 使用独立工作协程处理重试,不阻塞主流程
-// 3. 根据DNS服务器分组批量重试
+// retry implements an optimized retry mechanism.
+// Optimization point 4: improved retry scan efficiency.
+// 1. Adds empty-scan detection to avoid unnecessary CPU consumption.
+// 2. Uses dedicated worker goroutines to handle retries without blocking the main flow.
+// 3. Groups retries by DNS server for batch processing.
 func (r *Runner) retry(ctx context.Context) {
-	// 检测间隔: 使用200ms而不是完整超时时间,更及时发现超时
-	// 原实现每 timeoutSeconds 扫描一次,现在更频繁但有空扫描优化
+	// Check interval: use 200ms instead of the full timeout period for more timely detection of timeouts.
+	// The original implementation scanned every timeoutSeconds; now it scans more frequently with empty-scan optimization.
 	t := time.NewTicker(200 * time.Millisecond)
 	defer t.Stop()
 
-	// 用于批量发送的域名缓冲区
+	// Domain buffer for batch sending
 	const batchSize = 100
 	retryDomains := make([]string, 0, batchSize)
 
-	// 记录上次扫描时间，当数据库为空时可以更节约资源
+	// Track whether the last scan was empty to conserve resources when the database is empty
 	lastScanEmpty := false
 
-	// 启动多个worker用于处理重试
+	// Start multiple workers to handle retries
 	workerCount := 4
 	retryDomainCh := make(chan string, batchSize*2)
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
-	// 工作协程，用于发送重试请求
+	// Worker goroutines for sending retry requests
 	for i := 0; i < workerCount; i++ {
 		go func() {
 			defer wg.Done()
@@ -45,14 +45,14 @@ func (r *Runner) retry(ctx context.Context) {
 					if !ok {
 						return
 					}
-					// 重新发送
+					// Resend
 					r.domainChan <- domain
 				}
 			}
 		}()
 	}
 
-	// 为域名分组的批处理域名缓冲
+	// Batch domain buffer grouped by DNS server
 	dnsBatches := make(map[string][]string)
 
 	for {
@@ -62,37 +62,37 @@ func (r *Runner) retry(ctx context.Context) {
 			wg.Wait()
 			return
 		case <-t.C:
-			// 如果上次扫描为空且长度仍为0，可跳过
+			// If the last scan was empty and length is still 0, skip
 			currentLength := r.statusDB.Length()
 			if lastScanEmpty && currentLength == 0 {
 				continue
 			}
 
-			// 当前时间
+			// Current time
 			now := time.Now()
-			// 清空域名缓冲
+			// Clear domain buffer
 			retryDomains = retryDomains[:0]
 
-			// 清空分组缓冲
+			// Clear group buffer
 			for k := range dnsBatches {
 				dnsBatches[k] = dnsBatches[k][:0]
 			}
 
-			// 收集需要重试的域名
+			// Collect domains that need retrying
 			r.statusDB.Scan(func(key string, v statusdb.Item) error {
-				// 超过最大重试次数则放弃
+				// Abandon if maximum retry count exceeded
 				if r.maxRetryCount > 0 && v.Retry > r.maxRetryCount {
 					r.statusDB.Del(key)
 					atomic.AddUint64(&r.failedCount, 1)
 					return nil
 				}
 
-				// 检查是否超时
+				// Check if timed out
 				if int64(now.Sub(v.Time).Seconds()) >= r.timeoutSeconds {
-					// 将域名添加到重试列表，或者使用批量发送通道
+					// Add domain to retry list or use batch sending channel
 					retryDomains = append(retryDomains, key)
 
-					// 根据DNS服务器分组，以便批量发送
+					// Group by DNS server for batch sending
 					dns := r.selectDNSServer(key)
 					if _, ok := dnsBatches[dns]; !ok {
 						dnsBatches[dns] = make([]string, 0, batchSize)
@@ -102,19 +102,19 @@ func (r *Runner) retry(ctx context.Context) {
 				return nil
 			})
 
-			// 记录扫描状态
+			// Record scan state
 			lastScanEmpty = len(retryDomains) == 0
 
-			// 如果有需要重试的域名
+			// If there are domains to retry
 			if len(retryDomains) > 0 {
-				// 向工作协程发送重试域名
+				// Send retry domains to worker goroutines
 				for _, domain := range retryDomains {
-					// 非阻塞发送
+					// Non-blocking send
 					select {
 					case retryDomainCh <- domain:
-						// 发送成功
+						// Sent successfully
 					default:
-						// 通道满了，直接发送
+						// Channel full, send directly
 						r.domainChan <- domain
 					}
 				}

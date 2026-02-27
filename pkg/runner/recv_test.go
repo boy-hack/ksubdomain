@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestParseDNSName 测试 DNS 域名格式解析
-// 修复 Issue #70 的核心函数
+// TestParseDNSName tests DNS domain name format parsing.
+// Core function for fixing Issue #70.
 func TestParseDNSName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -16,17 +16,17 @@ func TestParseDNSName(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "标准域名 - www.google.com",
+			name: "Standard domain - www.google.com",
 			input: []byte{
 				3, 'w', 'w', 'w',
 				6, 'g', 'o', 'o', 'g', 'l', 'e',
 				3, 'c', 'o', 'm',
-				0, // 结束符
+				0, // terminator
 			},
 			expected: "www.google.com",
 		},
 		{
-			name: "二级域名 - baidu.com",
+			name: "Second-level domain - baidu.com",
 			input: []byte{
 				5, 'b', 'a', 'i', 'd', 'u',
 				3, 'c', 'o', 'm',
@@ -35,7 +35,7 @@ func TestParseDNSName(t *testing.T) {
 			expected: "baidu.com",
 		},
 		{
-			name: "三级域名 - mail.qq.com",
+			name: "Third-level domain - mail.qq.com",
 			input: []byte{
 				4, 'm', 'a', 'i', 'l',
 				2, 'q', 'q',
@@ -45,17 +45,17 @@ func TestParseDNSName(t *testing.T) {
 			expected: "mail.qq.com",
 		},
 		{
-			name:     "空输入",
+			name:     "Empty input",
 			input:    []byte{},
 			expected: "",
 		},
 		{
-			name:     "仅结束符",
+			name:     "Terminator only",
 			input:    []byte{0},
 			expected: "",
 		},
 		{
-			name: "无结束符域名",
+			name: "Domain without terminator",
 			input: []byte{
 				3, 'w', 'w', 'w',
 				6, 'g', 'o', 'o', 'g', 'l', 'e',
@@ -64,7 +64,7 @@ func TestParseDNSName(t *testing.T) {
 			expected: "www.google.com",
 		},
 		{
-			name: "长域名",
+			name: "Long domain",
 			input: []byte{
 				10, 's', 'u', 'b', 'd', 'o', 'm', 'a', 'i', 'n', '1',
 				10, 's', 'u', 'b', 'd', 'o', 'm', 'a', 'i', 'n', '2',
@@ -75,17 +75,17 @@ func TestParseDNSName(t *testing.T) {
 			expected: "subdomain1.subdomain2.example.com",
 		},
 		{
-			name: "压缩指针 (0xC0) - 应该停止",
+			name: "Compression pointer (0xC0) - should stop",
 			input: []byte{
 				3, 'w', 'w', 'w',
-				0xC0, 0x12, // 压缩指针
+				0xC0, 0x12, // compression pointer
 			},
 			expected: "www",
 		},
 		{
-			name: "异常长度 - 超出范围",
+			name: "Abnormal length - out of range",
 			input: []byte{
-				100, 'a', 'b', 'c', // 长度100但数据不足
+				100, 'a', 'b', 'c', // length 100 but insufficient data
 			},
 			expected: "",
 		},
@@ -94,12 +94,12 @@ func TestParseDNSName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseDNSName(tt.input)
-			assert.Equal(t, tt.expected, result, "DNS 域名解析结果不匹配")
+			assert.Equal(t, tt.expected, result, "DNS domain name parsing result mismatch")
 		})
 	}
 }
 
-// TestDNSRecord2String_CNAME 测试 CNAME 记录转换
+// TestDNSRecord2String_CNAME tests CNAME record conversion
 func TestDNSRecord2String_CNAME(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -108,7 +108,7 @@ func TestDNSRecord2String_CNAME(t *testing.T) {
 		hasError bool
 	}{
 		{
-			name: "标准 CNAME",
+			name: "Standard CNAME",
 			rr: layers.DNSResourceRecord{
 				Type:  layers.DNSTypeCNAME,
 				Class: layers.DNSClassIN,
@@ -138,7 +138,7 @@ func TestDNSRecord2String_CNAME(t *testing.T) {
 			hasError: false,
 		},
 		{
-			name: "空 CNAME",
+			name: "Empty CNAME",
 			rr: layers.DNSResourceRecord{
 				Type:  layers.DNSTypeCNAME,
 				Class: layers.DNSClassIN,
@@ -162,7 +162,7 @@ func TestDNSRecord2String_CNAME(t *testing.T) {
 	}
 }
 
-// TestDNSRecord2String_NS 测试 NS 记录转换
+// TestDNSRecord2String_NS tests NS record conversion
 func TestDNSRecord2String_NS(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -170,7 +170,7 @@ func TestDNSRecord2String_NS(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "标准 NS",
+			name: "Standard NS",
 			rr: layers.DNSResourceRecord{
 				Type:  layers.DNSTypeNS,
 				Class: layers.DNSClassIN,
@@ -208,7 +208,7 @@ func TestDNSRecord2String_NS(t *testing.T) {
 	}
 }
 
-// TestDNSRecord2String_A 测试 A 记录转换
+// TestDNSRecord2String_A tests A record conversion
 func TestDNSRecord2String_A(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -216,7 +216,7 @@ func TestDNSRecord2String_A(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "标准 A 记录",
+			name: "Standard A record",
 			rr: layers.DNSResourceRecord{
 				Type:  layers.DNSTypeA,
 				Class: layers.DNSClassIN,
@@ -225,7 +225,7 @@ func TestDNSRecord2String_A(t *testing.T) {
 			expected: "192.168.1.1",
 		},
 		{
-			name: "公网 IP",
+			name: "Public IP",
 			rr: layers.DNSResourceRecord{
 				Type:  layers.DNSTypeA,
 				Class: layers.DNSClassIN,
@@ -244,7 +244,7 @@ func TestDNSRecord2String_A(t *testing.T) {
 	}
 }
 
-// TestDNSRecord2String_PTR 测试 PTR 记录转换
+// TestDNSRecord2String_PTR tests PTR record conversion
 func TestDNSRecord2String_PTR(t *testing.T) {
 	rr := layers.DNSResourceRecord{
 		Type:  layers.DNSTypePTR,
@@ -261,7 +261,7 @@ func TestDNSRecord2String_PTR(t *testing.T) {
 	assert.Equal(t, "PTR example.com", result)
 }
 
-// BenchmarkParseDNSName 基准测试 DNS 域名解析性能
+// BenchmarkParseDNSName benchmarks DNS domain name parsing performance
 func BenchmarkParseDNSName(b *testing.B) {
 	input := []byte{
 		3, 'w', 'w', 'w',
@@ -276,7 +276,7 @@ func BenchmarkParseDNSName(b *testing.B) {
 	}
 }
 
-// BenchmarkDNSRecord2String 基准测试 DNS 记录转换性能
+// BenchmarkDNSRecord2String benchmarks DNS record conversion performance
 func BenchmarkDNSRecord2String(b *testing.B) {
 	rr := layers.DNSResourceRecord{
 		Type:  layers.DNSTypeCNAME,

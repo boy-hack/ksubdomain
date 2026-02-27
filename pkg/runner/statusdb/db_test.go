@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCreateMemoryDB 测试创建内存数据库
+// TestCreateMemoryDB tests creating an in-memory database
 func TestCreateMemoryDB(t *testing.T) {
 	db := CreateMemoryDB()
 	assert.NotNil(t, db)
@@ -18,7 +18,7 @@ func TestCreateMemoryDB(t *testing.T) {
 	db.Close()
 }
 
-// TestAddAndGet 测试添加和获取
+// TestAddAndGet tests adding and retrieving items
 func TestAddAndGet(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -30,18 +30,18 @@ func TestAddAndGet(t *testing.T) {
 		Retry:  0,
 	}
 
-	// 添加
+	// Add
 	db.Add("www.example.com", item)
 	assert.Equal(t, int64(1), db.Length())
 
-	// 获取
+	// Get
 	result, ok := db.Get("www.example.com")
 	assert.True(t, ok)
 	assert.Equal(t, "www.example.com", result.Domain)
 	assert.Equal(t, "8.8.8.8", result.Dns)
 }
 
-// TestSet 测试设置操作
+// TestSet tests the set operation
 func TestSet(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -58,7 +58,7 @@ func TestSet(t *testing.T) {
 		Retry:  1,
 	}
 
-	// 首次设置
+	// First set
 	db.Set("test.com", item1)
 	assert.Equal(t, int64(1), db.Length())
 
@@ -66,16 +66,16 @@ func TestSet(t *testing.T) {
 	assert.Equal(t, "1.1.1.1", result.Dns)
 	assert.Equal(t, 0, result.Retry)
 
-	// 更新
+	// Update
 	db.Set("test.com", item2)
-	assert.Equal(t, int64(1), db.Length()) // 长度不变
+	assert.Equal(t, int64(1), db.Length()) // Length should not change
 
 	result, _ = db.Get("test.com")
 	assert.Equal(t, "8.8.8.8", result.Dns)
 	assert.Equal(t, 1, result.Retry)
 }
 
-// TestDel 测试删除操作
+// TestDel tests the delete operation
 func TestDel(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -94,23 +94,23 @@ func TestDel(t *testing.T) {
 	_, ok := db.Get("delete.me")
 	assert.False(t, ok)
 
-	// 删除不存在的键
+	// Delete a non-existent key
 	db.Del("not.exist")
 	assert.Equal(t, int64(0), db.Length())
 }
 
-// TestScan 测试扫描操作
+// TestScan tests the scan operation
 func TestScan(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
 
-	// 添加多个域名
+	// Add multiple domains
 	domains := []string{"a.com", "b.com", "c.com", "d.com"}
 	for _, domain := range domains {
 		db.Add(domain, Item{Domain: domain, Dns: "1.1.1.1"})
 	}
 
-	// 扫描所有域名
+	// Scan all domains
 	scanned := make(map[string]bool)
 	err := db.Scan(func(key string, value Item) error {
 		scanned[key] = true
@@ -120,11 +120,11 @@ func TestScan(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(domains), len(scanned))
 	for _, domain := range domains {
-		assert.True(t, scanned[domain], "域名 %s 应该被扫描到", domain)
+		assert.True(t, scanned[domain], "Domain %s should have been scanned", domain)
 	}
 }
 
-// TestConcurrentAdd 测试并发添加
+// TestConcurrentAdd tests concurrent add operations
 func TestConcurrentAdd(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -151,15 +151,15 @@ func TestConcurrentAdd(t *testing.T) {
 	wg.Wait()
 
 	expected := int64(concurrency * itemsPerGoroutine)
-	assert.Equal(t, expected, db.Length(), "并发添加后长度应该正确")
+	assert.Equal(t, expected, db.Length(), "Length should be correct after concurrent add")
 }
 
-// TestConcurrentReadWrite 测试并发读写
+// TestConcurrentReadWrite tests concurrent read and write operations
 func TestConcurrentReadWrite(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
 
-	// 预先添加一些数据
+	// Pre-add some data
 	for i := 0; i < 100; i++ {
 		domain := fmt.Sprintf("test-%d.com", i)
 		db.Add(domain, Item{Domain: domain, Dns: "1.1.1.1"})
@@ -168,7 +168,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 	var wg sync.WaitGroup
 	operations := 1000
 
-	// 并发读
+	// Concurrent reads
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -178,7 +178,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 		}
 	}()
 
-	// 并发写
+	// Concurrent writes
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -188,7 +188,7 @@ func TestConcurrentReadWrite(t *testing.T) {
 		}
 	}()
 
-	// 并发删除
+	// Concurrent deletes
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -199,22 +199,22 @@ func TestConcurrentReadWrite(t *testing.T) {
 	}()
 
 	wg.Wait()
-	// 测试通过即表示无数据竞争
+	// Test passes if there is no data race
 }
 
-// TestSharding 测试分片均匀性
+// TestSharding tests shard distribution uniformity
 func TestSharding(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
 
-	// 添加大量域名
+	// Add a large number of domains
 	totalDomains := 10000
 	for i := 0; i < totalDomains; i++ {
 		domain := fmt.Sprintf("domain-%d.example.com", i)
 		db.Add(domain, Item{Domain: domain})
 	}
 
-	// 统计每个分片的数量
+	// Count the number of items per shard
 	shardCounts := make([]int, db.shardCount)
 	for i := 0; i < totalDomains; i++ {
 		domain := fmt.Sprintf("domain-%d.example.com", i)
@@ -227,7 +227,7 @@ func TestSharding(t *testing.T) {
 		}
 	}
 
-	// 计算平均值和方差
+	// Calculate mean and variance
 	avg := float64(totalDomains) / float64(db.shardCount)
 	var variance float64
 	for _, count := range shardCounts {
@@ -235,30 +235,30 @@ func TestSharding(t *testing.T) {
 		variance += diff * diff
 	}
 	variance /= float64(db.shardCount)
-	stdDev := variance // 简化计算
+	stdDev := variance // Simplified calculation
 
-	// 分布应该相对均匀 (标准差 < 平均值的 20%)
-	assert.Less(t, stdDev, avg*avg*0.04, "分片分布不够均匀")
+	// Distribution should be relatively uniform (std dev < 20% of mean)
+	assert.Less(t, stdDev, avg*avg*0.04, "Shard distribution is not uniform enough")
 }
 
-// TestExpiration 测试数据过期
+// TestExpiration tests data expiration
 func TestExpiration(t *testing.T) {
 	db := CreateMemoryDB()
 	defer db.Close()
 
-	// 设置1秒过期
+	// Set 1-second expiration
 	db.SetExpiration(1 * time.Second)
 
 	oldItem := Item{
 		Domain: "old.com",
 		Dns:    "1.1.1.1",
-		Time:   time.Now().Add(-2 * time.Second), // 2秒前
+		Time:   time.Now().Add(-2 * time.Second), // 2 seconds ago
 	}
 
 	newItem := Item{
 		Domain: "new.com",
 		Dns:    "8.8.8.8",
-		Time:   time.Now(), // 刚刚
+		Time:   time.Now(), // Just now
 	}
 
 	db.Add("old.com", oldItem)
@@ -266,10 +266,10 @@ func TestExpiration(t *testing.T) {
 
 	assert.Equal(t, int64(2), db.Length())
 
-	// 手动触发清理
+	// Manually trigger cleanup
 	db.cleanup()
 
-	// 旧数据应该被清理
+	// Old data should be cleaned up
 	assert.Equal(t, int64(1), db.Length())
 	_, ok := db.Get("old.com")
 	assert.False(t, ok)
@@ -278,7 +278,7 @@ func TestExpiration(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// BenchmarkAdd 基准测试添加性能
+// BenchmarkAdd benchmarks add performance
 func BenchmarkAdd(b *testing.B) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -296,12 +296,12 @@ func BenchmarkAdd(b *testing.B) {
 	}
 }
 
-// BenchmarkGet 基准测试获取性能
+// BenchmarkGet benchmarks get performance
 func BenchmarkGet(b *testing.B) {
 	db := CreateMemoryDB()
 	defer db.Close()
 
-	// 预先添加数据
+	// Pre-add data
 	for i := 0; i < 10000; i++ {
 		domain := fmt.Sprintf("domain-%d.com", i)
 		db.Add(domain, Item{Domain: domain})
@@ -314,7 +314,7 @@ func BenchmarkGet(b *testing.B) {
 	}
 }
 
-// BenchmarkConcurrentAdd 并发添加基准测试
+// BenchmarkConcurrentAdd benchmarks concurrent add performance
 func BenchmarkConcurrentAdd(b *testing.B) {
 	db := CreateMemoryDB()
 	defer db.Close()
@@ -329,7 +329,7 @@ func BenchmarkConcurrentAdd(b *testing.B) {
 	})
 }
 
-// BenchmarkGetShard 基准测试分片查找性能
+// BenchmarkGetShard benchmarks shard lookup performance
 func BenchmarkGetShard(b *testing.B) {
 	db := CreateMemoryDB()
 	defer db.Close()

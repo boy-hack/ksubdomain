@@ -9,7 +9,7 @@ import (
 )
 
 func TestSpeed(ether *device.EtherTable) {
-	ether.DstMac = device.SelfMac(net.HardwareAddr{0x5c, 0xc9, 0x09, 0x33, 0x34, 0x80}) // 指定一个错误的dstmac地址，包会经过本机网卡，但是发不出去
+	ether.DstMac = device.SelfMac(net.HardwareAddr{0x5c, 0xc9, 0x09, 0x33, 0x34, 0x80}) // Use an incorrect dstmac address so packets pass through the local interface but are not sent out
 	var index int64 = 0
 	start := time.Now().UnixNano() / 1e6
 	timeSince := int64(15) // 15s
@@ -22,7 +22,7 @@ func TestSpeed(ether *device.EtherTable) {
 	handle, err := device.PcapInit(ether.Device)
 	defer handle.Close()
 	if err != nil {
-		gologger.Fatalf("初始化pcap失败,error:" + err.Error())
+		gologger.Fatalf("pcap initialization failed, error:" + err.Error())
 		return
 	}
 	var now int64
@@ -36,11 +36,11 @@ func TestSpeed(ether *device.EtherTable) {
 		}
 		if (now-start)%1000 == 0 && now-start >= 900 {
 			tickIndex := index / tickTime
-			gologger.Printf("\r %ds 总发送:%d Packet 平均每秒速度:%dpps", tickTime, index, tickIndex)
+			gologger.Printf("\r %ds Total sent:%d Packet  Average speed:%dpps", tickTime, index, tickIndex)
 		}
 	}
 	now = time.Now().UnixNano() / 1e6
 	tickTime := (now - start) / 1000
 	tickIndex := index / tickTime
-	gologger.Printf("\r %ds 总发送:%d Packet 平均每秒速度:%dpps\n", tickTime, index, tickIndex)
+	gologger.Printf("\r %ds Total sent:%d Packet  Average speed:%dpps\n", tickTime, index, tickIndex)
 }

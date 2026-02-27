@@ -10,26 +10,26 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 
-// JSONLOutput JSONL (JSON Lines) 输出器
-// 每行一个 JSON 对象,便于流式处理和工具链集成
-// 格式: {"domain":"example.com","type":"A","records":["1.2.3.4"],"timestamp":1234567890}
+// JSONLOutput is the JSONL (JSON Lines) output handler.
+// Each line contains one JSON object, suitable for streaming processing and toolchain integration.
+// Format: {"domain":"example.com","type":"A","records":["1.2.3.4"],"timestamp":1234567890}
 type JSONLOutput struct {
 	filename string
 	file     *os.File
 	mu       sync.Mutex
 }
 
-// JSONLRecord JSONL 记录格式
+// JSONLRecord is the JSONL record format
 type JSONLRecord struct {
-	Domain    string   `json:"domain"`              // 子域名
-	Type      string   `json:"type"`                // 记录类型 (A, CNAME, NS, etc.)
-	Records   []string `json:"records"`             // 记录值列表
-	Timestamp int64    `json:"timestamp"`           // Unix 时间戳
-	TTL       uint32   `json:"ttl,omitempty"`       // TTL (可选)
-	Source    string   `json:"source,omitempty"`    // 数据来源 (可选)
+	Domain    string   `json:"domain"`           // Subdomain
+	Type      string   `json:"type"`             // Record type (A, CNAME, NS, etc.)
+	Records   []string `json:"records"`          // Record values
+	Timestamp int64    `json:"timestamp"`        // Unix timestamp
+	TTL       uint32   `json:"ttl,omitempty"`    // TTL (optional)
+	Source    string   `json:"source,omitempty"` // Data source (optional)
 }
 
-// NewJSONLOutput 创建 JSONL 输出器
+// NewJSONLOutput creates a JSONL output handler
 func NewJSONLOutput(filename string) (*JSONLOutput, error) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
@@ -44,24 +44,24 @@ func NewJSONLOutput(filename string) (*JSONLOutput, error) {
 	}, nil
 }
 
-// WriteDomainResult 写入单个域名结果
-// JSONL 格式每次写入一行 JSON,立即刷新
-// 优点: 支持流式处理,可以实时读取
+// WriteDomainResult writes a single domain result.
+// JSONL format writes one JSON line per call and flushes immediately.
+// Benefit: supports streaming processing; results can be read in real time.
 func (j *JSONLOutput) WriteDomainResult(r result.Result) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	// 解析记录类型
-	recordType := "A" // 默认 A 记录
+	// Parse record type
+	recordType := "A" // default A record
 	records := make([]string, 0, len(r.Answers))
 
 	for _, answer := range r.Answers {
-		// 解析类型 (CNAME, NS, PTR 等)
+		// Parse type (CNAME, NS, PTR, etc.)
 		if len(answer) > 0 {
-			// 检查是否为特殊记录类型
+			// Check for special record types
 			if len(answer) > 6 && answer[:6] == "CNAME " {
 				recordType = "CNAME"
-				records = append(records, answer[6:]) // 去掉 "CNAME " 前缀
+				records = append(records, answer[6:]) // Strip "CNAME " prefix
 			} else if len(answer) > 3 && answer[:3] == "NS " {
 				recordType = "NS"
 				records = append(records, answer[3:])
@@ -72,18 +72,18 @@ func (j *JSONLOutput) WriteDomainResult(r result.Result) error {
 				recordType = "TXT"
 				records = append(records, answer[4:])
 			} else {
-				// IP 地址 (A 或 AAAA 记录)
+				// IP address (A or AAAA record)
 				records = append(records, answer)
 			}
 		}
 	}
 
-	// 如果没有解析出记录,使用原始 answers
+	// If no records were parsed, use raw answers
 	if len(records) == 0 {
 		records = r.Answers
 	}
 
-	// 构造 JSONL 记录
+	// Build JSONL record
 	record := JSONLRecord{
 		Domain:    r.Subdomain,
 		Type:      recordType,
@@ -91,23 +91,23 @@ func (j *JSONLOutput) WriteDomainResult(r result.Result) error {
 		Timestamp: time.Now().Unix(),
 	}
 
-	// 序列化为 JSON
+	// Serialize to JSON
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
 
-	// 写入一行 (JSON + 换行符)
+	// Write one line (JSON + newline)
 	_, err = j.file.Write(append(data, '\n'))
 	if err != nil {
 		return err
 	}
 
-	// 立即刷新到磁盘 (支持实时读取)
+	// Flush to disk immediately (supports real-time reading)
 	return j.file.Sync()
 }
 
-// Close 关闭 JSONL 输出器
+// Close closes the JSONL output handler
 func (j *JSONLOutput) Close() error {
 	j.mu.Lock()
 	defer j.mu.Unlock()

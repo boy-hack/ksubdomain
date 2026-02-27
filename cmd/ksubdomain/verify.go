@@ -82,7 +82,7 @@ var commonFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:    "only-domain",
 		Aliases: []string{"od"},
-		Usage:   "只输出域名,不显示IP (修复 Issue #67)",
+		Usage:   "Only output domain names, do not display IP (Fix Issue #67)",
 		Value:   false,
 	},
 	&cli.IntFlag{
@@ -169,7 +169,7 @@ var verifyCommand = &cli.Command{
 			}
 		}
 		render := make(chan string)
-		// 读取文件
+		// Read domains from file
 		go func() {
 			for _, line := range domains {
 				render <- line
@@ -177,7 +177,7 @@ var verifyCommand = &cli.Command{
 			if c.String("filename") != "" {
 				f2, err := os.Open(c.String("filename"))
 				if err != nil {
-					gologger.Fatalf("打开文件:%s 出现错误:%s", c.String("filename"), err.Error())
+					gologger.Fatalf("Failed to open file %s: %s", c.String("filename"), err.Error())
 				}
 				defer f2.Close()
 				iofile := bufio.NewScanner(f2)
@@ -189,7 +189,7 @@ var verifyCommand = &cli.Command{
 			close(render)
 		}()
 
-		// 输出到屏幕
+		// Output to screen
 		if c.Bool("quiet") {
 			processBar = nil
 		}
@@ -197,7 +197,7 @@ var verifyCommand = &cli.Command{
 		var screenWriter outputter.Output
 		var err error
 		
-		// 美化输出模式
+		// Beautified output mode
 		if c.Bool("beautify") || c.Bool("color") {
 			useColor := c.Bool("color") || c.Bool("beautify")
 			onlyDomain := c.Bool("only-domain")
@@ -239,14 +239,14 @@ var verifyCommand = &cli.Command{
 				p := output2.NewCsvOutput(outputFile, wildFilterMode)
 				writer = append(writer, p)
 			case "jsonl":
-				// JSONL (JSON Lines) 格式: 每行一个 JSON,便于流式处理
+				// JSONL (JSON Lines) format: One JSON per line for streaming
 				p, err := output2.NewJSONLOutput(outputFile)
 				if err != nil {
 					gologger.Fatalf(err.Error())
 				}
 				writer = append(writer, p)
 			default:
-				gologger.Fatalf("输出类型错误:%s 暂不支持 (支持: txt, json, csv, jsonl)", outputType)
+				gologger.Fatalf("Unsupported output type: %s (supported: txt, json, csv, jsonl)", outputType)
 			}
 		}
 		resolver := options.GetResolvers(c.StringSlice("resolvers"))

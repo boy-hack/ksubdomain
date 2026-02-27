@@ -29,8 +29,8 @@ func TestGetOrCreate_TemplateCache(t *testing.T) {
 	template2 := getOrCreate(dnsServer, ether, port)
 	assert.NotNil(t, template2)
 
-	// 应该是同一个对象 (指针相同)
-	assert.Equal(t, template1, template2, "应该返回缓存的模板")
+	// Should be the same object (same pointer)
+	assert.Equal(t, template1, template2, "Should return the cached template")
 }
 
 // TestGetOrCreate_DifferentServers 测试不同 DNS 服务器使用不同模板
@@ -98,11 +98,11 @@ func TestGetOrCreate_Concurrent(t *testing.T) {
 
 	wg.Wait()
 
-	// 所有并发调用应该返回同一个模板
+	// All concurrent calls should return the same template
 	firstTemplate := templates[0]
 	for i := 1; i < concurrency; i++ {
 		assert.Equal(t, firstTemplate, templates[i],
-			"并发调用应该返回相同的缓存模板")
+			"Concurrent calls should return the same cached template")
 	}
 }
 
@@ -116,15 +116,15 @@ func TestTemplateCache_MultipleServers(t *testing.T) {
 
 	port := uint16(53)
 
-	// 常见的公共 DNS 服务器
-	dnsServers := []string{
-		"8.8.8.8",       // Google
-		"8.8.4.4",       // Google
-		"1.1.1.1",       // Cloudflare
-		"1.0.0.1",       // Cloudflare
-		"114.114.114.114", // 114 DNS
-		"223.5.5.5",     // 阿里 DNS
-	}
+		// Common public DNS servers
+		dnsServers := []string{
+			"8.8.8.8",       // Google
+			"8.8.4.4",       // Google
+			"1.1.1.1",       // Cloudflare
+			"1.0.0.1",       // Cloudflare
+			"114.114.114.114", // 114 DNS
+			"223.5.5.5",     // AliDNS
+		}
 
 	templates := make(map[string]*packetTemplate)
 
@@ -133,15 +133,15 @@ func TestTemplateCache_MultipleServers(t *testing.T) {
 		templates[dns] = getOrCreate(dns, ether, port)
 	}
 
-	// 验证每个服务器都有唯一的模板
+	// Verify each server has a unique template
 	for i, dns1 := range dnsServers {
 		for j, dns2 := range dnsServers {
 			if i == j {
-				// 同一个服务器,再次获取应该是缓存
+				// Same server, fetching again should return from cache
 				cached := getOrCreate(dns1, ether, port)
 				assert.Equal(t, templates[dns1], cached)
 			} else {
-				// 不同服务器,模板应该不同
+				// Different servers should have different templates
 				assert.NotEqual(t, templates[dns1], templates[dns2])
 			}
 		}
@@ -175,7 +175,7 @@ func BenchmarkGetOrCreate_CacheMiss(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// 每次使用不同的DNS服务器,触发缓存未命中
+		// Each time use a different DNS server to trigger cache miss
 		dns := "8.8.8." + string(rune(i%255))
 		_ = getOrCreate(dns, ether, 53)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 
-// handleResult 处理扫描结果
+// handleResult processes scan results
 func (r *Runner) handleResult(predictChan chan string) {
 	isWildCard := r.options.WildcardFilterMode != "none"
 	var wg sync.WaitGroup
@@ -44,10 +44,10 @@ func (r *Runner) handleResult(predictChan chan string) {
 	wg.Wait()
 }
 
-// predict 根据已知域名预测新的子域名
+// predict processes a known domain to predict new subdomains
 func (r *Runner) predict(res result.Result, predictChan chan string) error {
 	if r.domainChan == nil {
-		return fmt.Errorf("域名通道未初始化")
+		return fmt.Errorf("domain channel is not initialized")
 	}
 	_, err := predict.PredictDomains(res.Subdomain, predictChan)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *Runner) predict(res result.Result, predictChan chan string) error {
 	return nil
 }
 
-// handleResultWithContext 处理扫描结果（带有context管理）
+// handleResultWithContext processes scan results with context management
 func (r *Runner) handleResultWithContext(ctx context.Context, wg *sync.WaitGroup, predictChan chan string) {
 	defer wg.Done()
 	isWildCard := r.options.WildcardFilterMode != "none"
@@ -101,7 +101,7 @@ func (r *Runner) handleResultWithContext(ctx context.Context, wg *sync.WaitGroup
 	}
 }
 
-// checkWildIps 检查是否为通配符IP
+// checkWildIps checks whether an IP is a wildcard IP
 func checkWildIps(wildIps []string, ip []string) bool {
 	for _, w := range wildIps {
 		for _, i := range ip {

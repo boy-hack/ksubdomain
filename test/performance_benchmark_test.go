@@ -20,18 +20,18 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 
-// Benchmark100kDomains 10万域名性能基准测试
-// 参考 README 中的对比测试:
-// - 测试环境: 4核CPU, 5M 带宽
-// - 字典大小: 10万域名
-// - 目标: ~30秒完成扫描
-// - 成功率: > 95%
+// Benchmark100kDomains is a performance benchmark for 100k domains.
+// Reference test from README:
+// - Test environment: 4-core CPU, 5M bandwidth
+// - Dictionary size: 100k domains
+// - Target: ~30 seconds to complete
+// - Success rate: > 95%
 func Benchmark100kDomains(b *testing.B) {
 	if testing.Short() {
-		b.Skip("跳过性能基准测试 (使用 -tags=performance 运行)")
+		b.Skip("Skipping performance benchmark (use -tags=performance to run)")
 	}
 
-	// 创建 10 万域名字典
+	// Create 100k domain dictionary
 	dictFile := createBenchmarkDict(b, 100000)
 	defer os.Remove(dictFile)
 
@@ -41,10 +41,10 @@ func Benchmark100kDomains(b *testing.B) {
 	}
 }
 
-// Benchmark10kDomains 1万域名快速测试
+// Benchmark10kDomains is a quick test for 10k domains
 func Benchmark10kDomains(b *testing.B) {
 	if testing.Short() {
-		b.Skip("跳过性能基准测试")
+		b.Skip("Skipping performance benchmark")
 	}
 
 	dictFile := createBenchmarkDict(b, 10000)
@@ -56,7 +56,7 @@ func Benchmark10kDomains(b *testing.B) {
 	}
 }
 
-// Benchmark1kDomains 1千域名基础测试
+// Benchmark1kDomains is a basic test for 1k domains
 func Benchmark1kDomains(b *testing.B) {
 	dictFile := createBenchmarkDict(b, 1000)
 	defer os.Remove(dictFile)
@@ -67,21 +67,21 @@ func Benchmark1kDomains(b *testing.B) {
 	}
 }
 
-// createBenchmarkDict 创建测试字典
+// createBenchmarkDict creates a test dictionary file
 func createBenchmarkDict(b *testing.B, count int) string {
 	b.Helper()
 
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("ksubdomain_bench_%d.txt", count))
 	f, err := os.Create(tmpFile)
 	if err != nil {
-		b.Fatalf("创建字典文件失败: %v", err)
+		b.Fatalf("Failed to create dictionary file: %v", err)
 	}
 	defer f.Close()
 
 	writer := bufio.NewWriter(f)
 
-	// 生成域名列表
-	// 使用一些真实存在的域名模式,提高测试真实性
+	// Generate domain list.
+	// Use some realistic domain patterns to improve test authenticity.
 	baseDomains := []string{
 		"example.com",
 		"test.com",
@@ -99,43 +99,43 @@ func createBenchmarkDict(b *testing.B, count int) string {
 		var domain string
 
 		if i < len(prefixes)*len(baseDomains) {
-			// 使用常见前缀
+			// Use common prefixes
 			prefix := prefixes[i%len(prefixes)]
 			base := baseDomains[i/len(prefixes)%len(baseDomains)]
 			domain = fmt.Sprintf("%s.%s", prefix, base)
 		} else {
-			// 生成随机子域名
+			// Generate random subdomains
 			base := baseDomains[i%len(baseDomains)]
 			domain = fmt.Sprintf("subdomain%d.%s", i, base)
 		}
 
 		_, err := writer.WriteString(domain + "\n")
 		if err != nil {
-			b.Fatalf("写入字典失败: %v", err)
+			b.Fatalf("Failed to write dictionary: %v", err)
 		}
 	}
 
 	err = writer.Flush()
 	if err != nil {
-		b.Fatalf("刷新字典失败: %v", err)
+		b.Fatalf("Failed to flush dictionary: %v", err)
 	}
 
-	b.Logf("创建字典: %s (%d 个域名)", tmpFile, count)
+	b.Logf("Created dictionary: %s (%d domains)", tmpFile, count)
 	return tmpFile
 }
 
-// runBenchmark 运行性能测试
+// runBenchmark runs a performance test
 func runBenchmark(b *testing.B, dictFile string, expectedCount int) {
 	b.Helper()
 
-	// 打开字典文件
+	// Open dictionary file
 	file, err := os.Open(dictFile)
 	if err != nil {
-		b.Fatalf("打开字典失败: %v", err)
+		b.Fatalf("Failed to open dictionary: %v", err)
 	}
 	defer file.Close()
 
-	// 读取所有域名到通道
+	// Read all domains into a channel
 	domainChan := make(chan string, 10000)
 	go func() {
 		scanner := bufio.NewScanner(file)
@@ -145,16 +145,16 @@ func runBenchmark(b *testing.B, dictFile string, expectedCount int) {
 		close(domainChan)
 	}()
 
-	// 收集结果
+	// Collect results
 	results := &perfOutputter{
-		results:     make([]result.Result, 0, expectedCount),
-		startTime:   time.Now(),
+		results:      make([]result.Result, 0, expectedCount),
+		startTime:    time.Now(),
 		totalDomains: expectedCount,
 	}
 
-	// 配置扫描参数 (参考 README 的测试配置)
+	// Configure scan parameters (reference README test config)
 	opt := &options.Options{
-		Rate:       options.Band2Rate("5m"), // 5M 带宽
+		Rate:       options.Band2Rate("5m"), // 5M bandwidth
 		Domain:     domainChan,
 		Resolvers:  options.GetResolvers(nil),
 		Silent:     true,
@@ -166,56 +166,56 @@ func runBenchmark(b *testing.B, dictFile string, expectedCount int) {
 		EtherInfo:  options.GetDeviceConfig(options.GetResolvers(nil)),
 	}
 
-	// 创建上下文 (5分钟超时,足够10万域名)
+	// Create context (5-minute timeout, sufficient for 100k domains)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// 记录开始时间
+	// Record start time
 	startTime := time.Now()
 
-	// 运行扫描
+	// Run scan
 	r, err := runner.New(opt)
 	if err != nil {
-		b.Fatalf("创建 runner 失败: %v", err)
+		b.Fatalf("Failed to create runner: %v", err)
 	}
 
 	r.RunEnumeration(ctx)
 	r.Close()
 
-	// 计算性能指标
+	// Calculate performance metrics
 	elapsed := time.Since(startTime)
 	successCount := len(results.results)
 	successRate := float64(successCount) / float64(expectedCount) * 100
 	domainsPerSecond := float64(expectedCount) / elapsed.Seconds()
 
-	// 报告性能指标
+	// Report performance metrics
 	b.ReportMetric(elapsed.Seconds(), "total_seconds")
 	b.ReportMetric(float64(successCount), "success_count")
 	b.ReportMetric(successRate, "success_rate_%")
 	b.ReportMetric(domainsPerSecond, "domains/sec")
 
-	// 日志输出
-	b.Logf("性能测试结果:")
-	b.Logf("  - 字典大小: %d 个域名", expectedCount)
-	b.Logf("  - 总耗时:   %v", elapsed)
-	b.Logf("  - 成功数:   %d", successCount)
-	b.Logf("  - 成功率:   %.2f%%", successRate)
-	b.Logf("  - 速率:     %.0f domains/s", domainsPerSecond)
+	// Log output
+	b.Logf("Performance test results:")
+	b.Logf("  - Dictionary size: %d domains", expectedCount)
+	b.Logf("  - Total elapsed:   %v", elapsed)
+	b.Logf("  - Success count:   %d", successCount)
+	b.Logf("  - Success rate:    %.2f%%", successRate)
+	b.Logf("  - Speed:           %.0f domains/s", domainsPerSecond)
 
-	// 性能基准检查 (参考 README: 10万域名 ~30秒)
+	// Performance baseline check (reference README: 100k domains ~30 seconds)
 	if expectedCount == 100000 {
-		// 10万域名应该在 60 秒内完成 (给予一定容差)
+		// 100k domains should complete within 60 seconds (with tolerance)
 		if elapsed.Seconds() > 60 {
-			b.Logf("⚠️  性能警告: 10万域名耗时 %.1f 秒 (目标 < 60秒)", elapsed.Seconds())
+			b.Logf("⚠️  Performance warning: 100k domains took %.1f seconds (target < 60s)", elapsed.Seconds())
 		} else if elapsed.Seconds() <= 30 {
-			b.Logf("✅ 性能优秀: 10万域名仅耗时 %.1f 秒 (达到 README 标准)", elapsed.Seconds())
+			b.Logf("✅ Excellent performance: 100k domains completed in %.1f seconds (meets README standard)", elapsed.Seconds())
 		} else {
-			b.Logf("✓  性能良好: 10万域名耗时 %.1f 秒", elapsed.Seconds())
+			b.Logf("✓  Good performance: 100k domains completed in %.1f seconds", elapsed.Seconds())
 		}
 	}
 }
 
-// perfOutputter 性能测试输出器
+// perfOutputter is the performance test output handler
 type perfOutputter struct {
 	results      []result.Result
 	mu           sync.Mutex
@@ -230,15 +230,15 @@ func (p *perfOutputter) WriteDomainResult(r result.Result) error {
 
 	p.results = append(p.results, r)
 
-	// 每1000个结果报告一次进度
+	// Report progress every 1000 results
 	if len(p.results)%1000 == 0 {
 		elapsed := time.Since(p.startTime)
 		rate := float64(len(p.results)) / elapsed.Seconds()
 		progress := float64(len(p.results)) / float64(p.totalDomains) * 100
 
-		// 避免频繁输出
+		// Avoid frequent output
 		if time.Since(p.lastReport) > time.Second {
-			fmt.Printf("\r进度: %d/%d (%.1f%%), 速率: %.0f domains/s, 耗时: %v",
+			fmt.Printf("\rProgress: %d/%d (%.1f%%), Speed: %.0f domains/s, Elapsed: %v",
 				len(p.results), p.totalDomains, progress, rate, elapsed.Round(time.Second))
 			p.lastReport = time.Now()
 		}
@@ -249,7 +249,7 @@ func (p *perfOutputter) WriteDomainResult(r result.Result) error {
 
 func (p *perfOutputter) Close() error {
 	elapsed := time.Since(p.startTime)
-	fmt.Printf("\n最终结果: %d/%d, 耗时: %v\n",
+	fmt.Printf("\nFinal result: %d/%d, Elapsed: %v\n",
 		len(p.results), p.totalDomains, elapsed.Round(time.Millisecond))
 	return nil
 }

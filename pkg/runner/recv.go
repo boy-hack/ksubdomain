@@ -16,56 +16,56 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// parseDNSName 解析 DNS 域名格式
-// DNS 域名格式: 长度前缀 + 标签 + ... + 结束符
-// 例如: \x03www\x06google\x03com\x00 表示 www.google.com
-// 修复 Issue #70: 正确解析 CNAME/NS/PTR 等记录,避免出现 "comcom" 等拼接错误
+// parseDNSName parses the DNS domain name format.
+// DNS name format: length prefix + label + ... + terminator
+// Example: \x03www\x06google\x03com\x00 represents www.google.com
+// Fix Issue #70: correctly parses CNAME/NS/PTR records to avoid concatenation errors like "comcom"
 func parseDNSName(raw []byte) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	
+
 	var result []byte
 	i := 0
-	
+
 	for i < len(raw) {
-		// 读取标签长度
+		// Read label length
 		length := int(raw[i])
-		
-		// 0x00 表示域名结束
+
+		// 0x00 means end of name
 		if length == 0 {
 			break
 		}
-		
-		// 0xC0 开头表示压缩指针 (RFC 1035)
-		// 压缩格式: 前2位为11,后14位为偏移量
+
+		// 0xC0 prefix means compression pointer (RFC 1035)
+		// Compressed format: top 2 bits are 11, lower 14 bits are offset
 		if length >= 0xC0 {
-			// 压缩指针,暂不处理(通常在完整DNS包中才有)
+			// Compression pointer; not handled here (only present in full DNS packets)
 			break
 		}
-		
-		// 添加点分隔符 (第一个标签除外)
+
+		// Add dot separator (except for the first label)
 		if len(result) > 0 {
 			result = append(result, '.')
 		}
-		
+
 		i++
-		
-		// 防止越界
+
+		// Guard against out-of-bounds
 		if i+length > len(raw) {
 			break
 		}
-		
-		// 添加标签内容
+
+		// Append label content
 		result = append(result, raw[i:i+length]...)
 		i += length
 	}
-	
+
 	return string(result)
 }
 
-// dnsRecord2String 将DNS记录转换为字符串
-// 修复 Issue #70: 使用 parseDNSName 正确解析域名格式
+// dnsRecord2String converts a DNS resource record to a string.
+// Fix Issue #70: use parseDNSName to correctly parse domain name format.
 func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	if rr.Class == layers.DNSClassIN {
 		switch rr.Type {
@@ -75,7 +75,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 			}
 		case layers.DNSTypeNS:
 			if rr.NS != nil {
-				// 修复: 使用 parseDNSName 解析 NS 记录
+				// Fix: use parseDNSName to parse NS record
 				ns := parseDNSName(rr.NS)
 				if ns != "" {
 					return "NS " + ns, nil
@@ -83,7 +83,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 			}
 		case layers.DNSTypeCNAME:
 			if rr.CNAME != nil {
-				// 修复: 使用 parseDNSName 解析 CNAME 记录
+				// Fix: use parseDNSName to parse CNAME record
 				cname := parseDNSName(rr.CNAME)
 				if cname != "" {
 					return "CNAME " + cname, nil
@@ -91,7 +91,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 			}
 		case layers.DNSTypePTR:
 			if rr.PTR != nil {
-				// 修复: 使用 parseDNSName 解析 PTR 记录
+				// Fix: use parseDNSName to parse PTR record
 				ptr := parseDNSName(rr.PTR)
 				if ptr != "" {
 					return "PTR " + ptr, nil
@@ -99,7 +99,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 			}
 		case layers.DNSTypeTXT:
 			if rr.TXT != nil {
-				// TXT 记录是纯文本,不需要解析
+				// TXT records are plain text, no parsing needed
 				return "TXT " + string(rr.TXT), nil
 			}
 		}
@@ -107,7 +107,7 @@ func dnsRecord2String(rr layers.DNSResourceRecord) (string, error) {
 	return "", errors.New("dns record error")
 }
 
-// 预分配解码器对象池，避免频繁创建
+// Pre-allocated decoder object pool to avoid frequent creation
 var decoderPool = sync.Pool{
 	New: func() interface{} {
 		var eth layers.Ethernet
@@ -130,7 +130,7 @@ var decoderPool = sync.Pool{
 	},
 }
 
-// decodingContext 解码上下文
+// decodingContext holds the decoding context
 type decodingContext struct {
 	parser  *gopacket.DecodingLayerParser
 	eth     *layers.Ethernet
@@ -141,46 +141,46 @@ type decodingContext struct {
 	decoded []gopacket.LayerType
 }
 
-// 解析DNS响应包并处理
+// processPacket parses a DNS response packet and handles it
 func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
-	// 从对象池获取解码器
+	// Get decoder from pool
 	dc := decoderPool.Get().(*decodingContext)
 	defer decoderPool.Put(dc)
 
-	// 清空解码层类型切片
+	// Clear the decoded layer types slice
 	dc.decoded = dc.decoded[:0]
 
-	// 解析数据包
+	// Parse the packet
 	err := dc.parser.DecodeLayers(data, &dc.decoded)
 	if err != nil {
 		return
 	}
 
-	// 检查是否为DNS响应
+	// Check if it is a DNS response
 	if !dc.dns.QR {
 		return
 	}
 
-	// 确认DNS ID匹配
+	// Verify DNS ID matches
 	if dc.dns.ID != r.dnsID {
 		return
 	}
 
-	// 确认有查询问题
+	// Ensure there is at least one question
 	if len(dc.dns.Questions) == 0 {
 		return
 	}
 
-	// 记录接收包数量
+	// Record number of received packets
 	atomic.AddUint64(&r.receiveCount, 1)
 
-	// 向处理通道发送DNS响应
+	// Send DNS response to the processing channel
 	select {
 	case dnsChanel <- *dc.dns:
 	}
 }
 
-// recvChanel 实现接收DNS响应的功能
+// recvChanel implements the functionality to receive DNS responses
 func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var (
@@ -190,49 +190,49 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 	)
 	inactive, err := pcap.NewInactiveHandle(r.options.EtherInfo.Device)
 	if err != nil {
-		gologger.Errorf("创建网络捕获句柄失败: %v", err)
+		gologger.Errorf("Failed to create network capture handle: %v", err)
 		return
 	}
 	err = inactive.SetSnapLen(snapshotLen)
 	if err != nil {
-		gologger.Errorf("设置抓包长度失败: %v", err)
+		gologger.Errorf("Failed to set snapshot length: %v", err)
 		return
 	}
 	defer inactive.CleanUp()
 
 	if err = inactive.SetTimeout(timeout); err != nil {
-		gologger.Errorf("设置超时失败: %v", err)
+		gologger.Errorf("Failed to set timeout: %v", err)
 		return
 	}
 
 	err = inactive.SetImmediateMode(true)
 	if err != nil {
-		gologger.Errorf("设置即时模式失败: %v", err)
+		gologger.Errorf("Failed to set immediate mode: %v", err)
 		return
 	}
 
 	handle, err := inactive.Activate()
 	if err != nil {
-		gologger.Errorf("激活网络捕获失败: %v", err)
+		gologger.Errorf("Failed to activate network capture: %v", err)
 		return
 	}
 	defer handle.Close()
 
 	err = handle.SetBPFFilter(fmt.Sprintf("udp and src port 53 and dst port %d", r.listenPort))
 	if err != nil {
-		gologger.Errorf("设置BPF过滤器失败: %v", err)
+		gologger.Errorf("Failed to set BPF filter: %v", err)
 		return
 	}
 
-	// 创建DNS响应处理通道，缓冲大小适当增加
+	// Create DNS response processing channel with adequate buffer size
 	dnsChanel := make(chan layers.DNS, 10000)
 
-	// 使用多个协程处理DNS响应，提高并发效率
+	// Use multiple goroutines to process DNS responses for higher concurrency
 	processorCount := runtime.NumCPU() * 2
 	var processorWg sync.WaitGroup
 	processorWg.Add(processorCount)
 
-	// 启动多个处理协程
+	// Start multiple processing goroutines
 	for i := 0; i < processorCount; i++ {
 		go func() {
 			defer processorWg.Done()
@@ -267,10 +267,10 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 		}()
 	}
 
-	// 使用多个接收协程读取网络数据包
+	// Use a goroutine to read network packets
 	packetChan := make(chan []byte, 10000)
 
-	// 启动数据包接收协程
+	// Start packet receiving goroutine
 	go func() {
 		for {
 			data, _, err := handle.ReadPacketData()
@@ -285,12 +285,12 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 			case <-ctx.Done():
 				return
 			case packetChan <- data:
-				// 数据包已发送到处理通道
+				// Packet sent to processing channel
 			}
 		}
 	}()
 
-	// 启动多个数据包解析协程
+	// Start multiple packet parsing goroutines
 	parserCount := runtime.NumCPU() * 2
 	var parserWg sync.WaitGroup
 	parserWg.Add(parserCount)
@@ -312,14 +312,14 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 		}()
 	}
 
-	// 等待上下文结束
+	// Wait for context to be done
 	<-ctx.Done()
 
-	// 关闭通道
+	// Close channels
 	close(packetChan)
 	close(dnsChanel)
 
-	// 等待所有处理和解析协程结束
+	// Wait for all processing and parsing goroutines to finish
 	parserWg.Wait()
 	processorWg.Wait()
 }
