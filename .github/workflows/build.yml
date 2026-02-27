@@ -1,12 +1,12 @@
 name: 🎉 Build Binary
 on:
-  create:
+  push:
     tags:
       - v*
 
 jobs:
-  build-linux:
-    name: Build Linux
+  build-linux-windows:
+    name: Build Linux and Windows
     runs-on: ubuntu-22.04
     steps:
       - name: Set up Go
