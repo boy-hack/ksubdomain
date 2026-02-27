@@ -27,7 +27,7 @@ func RandInt64(min, max int64) int64 {
 	return rand.Int63n(max-min) + min
 }
 
-// LinesInFile 读取文件 返回每行的数组
+// LinesInFile reads a file and returns an array of lines
 func LinesInFile(fileName string) ([]string, error) {
 	result := []string{}
 	f, err := os.Open(fileName)
@@ -46,7 +46,7 @@ func LinesInFile(fileName string) ([]string, error) {
 	return result, nil
 }
 
-// LinesReaderInFile 读取文件，返回行数
+// LinesReaderInFile reads a file and returns the number of lines
 func LinesReaderInFile(filename string) (int, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -54,7 +54,7 @@ func LinesReaderInFile(filename string) (int, error) {
 	}
 	defer f.Close()
 
-	// 使用更大的缓冲区减少IO操作
+	// Use a larger buffer to reduce I/O operations
 	buf := make([]byte, 32*1024)
 	count := 0
 
@@ -64,7 +64,7 @@ func LinesReaderInFile(filename string) (int, error) {
 			break
 		}
 
-		// 直接遍历缓冲区计数换行符
+		// Directly traverse the buffer to count newline characters
 		for i := 0; i < readSize; i++ {
 			if buf[i] == '\n' {
 				count++
@@ -73,7 +73,7 @@ func LinesReaderInFile(filename string) (int, error) {
 
 		if err != nil {
 			if err == io.EOF {
-				// 处理文件末尾没有换行符的情况
+				// Handle the case where the file doesn't end with a newline
 				if readSize > 0 && (count == 0 || buf[readSize-1] != '\n') {
 					count++
 				}
@@ -83,7 +83,7 @@ func LinesReaderInFile(filename string) (int, error) {
 		}
 	}
 
-	// 处理空文件或只有一行没有换行符的文件
+	// Handle empty files or single-line files without a trailing newline
 	if count == 0 {
 		count = 1
 	}
@@ -92,7 +92,7 @@ func LinesReaderInFile(filename string) (int, error) {
 }
 
 func FileExists(path string) bool {
-	_, err := os.Stat(path) //os.Stat获取文件信息
+	_, err := os.Stat(path) // os.Stat retrieves file information
 	if err != nil {
 		if os.IsExist(err) {
 			return true

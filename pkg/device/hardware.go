@@ -31,7 +31,7 @@ func (d *SelfMac) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// 打印设备信息
+// PrintDeviceInfo prints network interface information
 func PrintDeviceInfo(ether *EtherTable) {
 	gologger.Infof("Device: %s\n", ether.Device)
 	gologger.Infof("IP: %s\n", ether.SrcIp.String())

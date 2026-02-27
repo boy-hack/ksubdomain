@@ -1,182 +1,181 @@
 #!/bin/bash
 
-# ksubdomain 压力测试脚本
-# 用于测试ksubdomain在高负载下的性能表现
+# ksubdomain stress test script
+# Tests ksubdomain performance under high load
 
-# 颜色定义
+# Color definitions
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
-NC='\033[0m' # 无颜色
+NC='\033[0m' # No color
 
-# 测试配置
+# Test configuration
 DOMAIN="example.com"
 DICT_LARGE="test/stress_dict.txt"
 RESOLVERS="test/resolvers.txt"
 OUTPUT_DIR="test/results"
 BIN="./ksubdomain"
 
-# 确保测试目录存在
+# Ensure test directories exist
 mkdir -p "$OUTPUT_DIR"
 
-# 创建DNS解析器文件（如果不存在）
+# Create the DNS resolver file if it does not exist
 if [ ! -f "$RESOLVERS" ]; then
-  echo "创建DNS解析器文件..."
+  echo "Creating DNS resolver file..."
   echo "8.8.8.8" > "$RESOLVERS"
   echo "8.8.4.4" >> "$RESOLVERS"
   echo "1.1.1.1" >> "$RESOLVERS"
   echo "114.114.114.114" >> "$RESOLVERS"
 fi
 
-# 创建大型字典（如果不存在）
+# Create the large dictionary if it does not exist
 if [ ! -f "$DICT_LARGE" ]; then
-  echo "创建大型字典..."
+  echo "Creating large dictionary..."
   for i in $(seq 1 500000); do
     echo "stress$i.$DOMAIN" >> "$DICT_LARGE"
   done
-  echo "创建了 500,000 条记录的字典"
+  echo "Created dictionary with 500,000 entries"
 fi
 
-# 获取系统信息
+# Print system information
 echo "========================================"
-echo "   系统信息"
+echo "   System Information"
 echo "========================================"
-echo "操作系统: $(uname -s)"
-echo "处理器: $(uname -p)"
-echo "内核版本: $(uname -r)"
+echo "OS:             $(uname -s)"
+echo "Processor:      $(uname -p)"
+echo "Kernel version: $(uname -r)"
 
 if [ "$(uname -s)" = "Linux" ]; then
-  echo "CPU核心数: $(nproc)"
-  echo "内存: $(free -h | grep Mem | awk '{print $2}')"
+  echo "CPU cores: $(nproc)"
+  echo "Memory:    $(free -h | grep Mem | awk '{print $2}')"
 elif [ "$(uname -s)" = "Darwin" ]; then
-  echo "CPU核心数: $(sysctl -n hw.ncpu)"
-  echo "内存: $(sysctl -n hw.memsize | awk '{print $1/1024/1024/1024 " GB"}')"
+  echo "CPU cores: $(sysctl -n hw.ncpu)"
+  echo "Memory:    $(sysctl -n hw.memsize | awk '{print $1/1024/1024/1024 " GB"}')"
 fi
 
 echo ""
 echo "========================================"
-echo "   KSubdomain 压力测试"
+echo "   KSubdomain Stress Test"
 echo "========================================"
 
-# 用于每次压力测试的函数
+# Function to run a single stress test at a given rate
 run_stress_test() {
   local rate=$1
   local output="${OUTPUT_DIR}/stress_${rate}.txt"
   local log="${OUTPUT_DIR}/stress_${rate}.log"
   
-  echo -e "${YELLOW}测试速率: $rate pps${NC}"
+  echo -e "${YELLOW}Testing rate: $rate pps${NC}"
   
-  # 清理旧文件
+  # Clean up old files
   [ -f "$output" ] && rm "$output"
   [ -f "$log" ] && rm "$log"
   
-  # 使用时间命令运行测试，获取总用时
-  echo "开始测试..."
+  echo "Starting test..."
   
-  # 执行测试并计时
+  # Run and time the test
   start_time=$(date +%s.%N)
   
-  # 将标准输出和错误输出重定向到日志文件
+  # Redirect stdout and stderr to the log file
   $BIN v -f "$DICT_LARGE" -r "$RESOLVERS" -o "$output" -b "$rate" --retry 2 --timeout 4 --np > "$log" 2>&1
   
   end_time=$(date +%s.%N)
   elapsed=$(echo "$end_time - $start_time" | bc)
   
-  # 统计结果
+  # Parse results
   processed_count=$(cat "$log" | grep -o "success:[0-9]*" | tail -1 | grep -o "[0-9]*")
   found_count=$(wc -l < "$output")
   
-  # 计算每秒处理的域名数
+  # Calculate throughput
   domains_per_sec=$(echo "$processed_count / $elapsed" | bc)
   
-  echo -e "${GREEN}测试完成${NC}"
-  echo "处理域名数: $processed_count"
-  echo "找到子域名: $found_count"
-  echo "耗时: $elapsed 秒"
-  echo "处理速率: $domains_per_sec 域名/秒"
+  echo -e "${GREEN}Test complete${NC}"
+  echo "Domains processed: $processed_count"
+  echo "Subdomains found:  $found_count"
+  echo "Elapsed time:      $elapsed sec"
+  echo "Throughput:        $domains_per_sec domains/sec"
   echo ""
   
-  # 输出结果字符串，供后续收集
+  # Return result string for collection
   echo "$rate,$elapsed,$processed_count,$found_count,$domains_per_sec"
 }
 
-# 不同速率的测试
-echo -e "${YELLOW}运行不同速率的压力测试...${NC}"
+# Run tests at different rates
+echo -e "${YELLOW}Running stress tests at various rates...${NC}"
 echo ""
 
-# 创建结果CSV文件
+# Create the results CSV file
 RESULT_CSV="${OUTPUT_DIR}/stress_results.csv"
-echo "速率(pps),耗时(秒),处理域名数,发现子域名数,实际速率(域名/秒)" > "$RESULT_CSV"
+echo "rate(pps),elapsed(sec),processed,found,throughput(domains/sec)" > "$RESULT_CSV"
 
-# 逐步提高速率进行测试
+# Gradually increase the rate
 for rate in "10k" "50k" "100k" "200k" "500k" "1m"; do
   result=$(run_stress_test "$rate")
   echo "$result" >> "$RESULT_CSV"
   
-  # 短暂休息让系统冷却
+  # Brief pause to let the system cool down
   sleep 5
 done
 
 echo "========================================"
-echo "   内存使用测试"
+echo "   Memory Usage Test"
 echo "========================================"
 
-# 记录运行时内存使用情况
-echo -e "${YELLOW}测试运行时内存使用情况...${NC}"
+# Monitor runtime memory usage
+echo -e "${YELLOW}Testing runtime memory usage...${NC}"
 MEMORY_LOG="${OUTPUT_DIR}/memory_usage.log"
 MEM_OUTPUT="${OUTPUT_DIR}/memory_test.txt"
 
-# 清理旧文件
+# Clean up old files
 [ -f "$MEMORY_LOG" ] && rm "$MEMORY_LOG"
 [ -f "$MEM_OUTPUT" ] && rm "$MEM_OUTPUT"
 
-echo "开始测试..."
+echo "Starting test..."
 
-# 后台运行ksubdomain
+# Run ksubdomain in the background
 $BIN v -f "$DICT_LARGE" -r "$RESOLVERS" -o "$MEM_OUTPUT" -b "100k" --retry 2 --timeout 4 --np > /dev/null 2>&1 &
 PID=$!
 
-# 监控10秒内的内存使用情况
+# Monitor memory usage for 10 seconds
 echo "PID: $PID"
-echo "监控内存使用情况..."
+echo "Monitoring memory usage..."
 
 for i in {1..10}; do
   if [ "$(uname -s)" = "Linux" ]; then
-    # Linux下获取RSS内存使用量
+    # Get RSS memory usage on Linux
     MEM=$(ps -p $PID -o rss= 2>/dev/null)
     if [ ! -z "$MEM" ]; then
       MEM_MB=$(echo "scale=2; $MEM / 1024" | bc)
-      echo "内存使用 #$i: ${MEM_MB}MB" | tee -a "$MEMORY_LOG"
+      echo "Memory usage #$i: ${MEM_MB} MB" | tee -a "$MEMORY_LOG"
     else
-      echo "进程已结束"
+      echo "Process has ended"
       break
     fi
   elif [ "$(uname -s)" = "Darwin" ]; then
-    # MacOS下获取内存使用量
+    # Get memory usage on macOS
     MEM=$(ps -p $PID -o rss= 2>/dev/null)
     if [ ! -z "$MEM" ]; then
       MEM_MB=$(echo "scale=2; $MEM / 1024" | bc)
-      echo "内存使用 #$i: ${MEM_MB}MB" | tee -a "$MEMORY_LOG"
+      echo "Memory usage #$i: ${MEM_MB} MB" | tee -a "$MEMORY_LOG"
     else
-      echo "进程已结束"
+      echo "Process has ended"
       break
     fi
   fi
   sleep 1
 done
 
-# 测试10秒后结束进程
+# Terminate the process after 10 seconds
 if kill -0 $PID 2>/dev/null; then
-  echo "终止进程..."
+  echo "Terminating process..."
   kill $PID
 fi
 
-# 获取最大内存使用量
+# Report peak memory usage
 if [ -f "$MEMORY_LOG" ]; then
-  MAX_MEM=$(cat "$MEMORY_LOG" | grep -o "[0-9]\+\.[0-9]\+MB" | sort -nr | head -1)
-  echo -e "${GREEN}最大内存使用量: $MAX_MEM${NC}"
+  MAX_MEM=$(cat "$MEMORY_LOG" | grep -o "[0-9]\+\.[0-9]\+ MB" | sort -nr | head -1)
+  echo -e "${GREEN}Peak memory usage: $MAX_MEM${NC}"
 fi
 
 echo ""
-echo "压力测试完成!"
-echo "结果保存在 $RESULT_CSV" 
+echo "Stress test complete!"
+echo "Results saved to $RESULT_CSV"

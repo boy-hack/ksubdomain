@@ -1,9 +1,9 @@
 
-输入域名 shoot.example.com
+Input domain: shoot.example.com
 {subdomain} => shoot
 {domain} => example.com
-{x}为分类
-{x1}为除了x的其他分类
+{x} is the category
+{x1} is any category other than x
 
 ```
 {x}.{subdomain}.{domain}

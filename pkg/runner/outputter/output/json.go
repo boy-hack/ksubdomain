@@ -30,7 +30,7 @@ func (f *JsonOutPut) WriteDomainResult(domain result.Result) error {
 }
 
 func (f *JsonOutPut) Close() error {
-	gologger.Infof("写入json文件:%s count:%d", f.filename, len(f.domains))
+	gologger.Infof("Writing JSON file: %s count:%d", f.filename, len(f.domains))
 	if len(f.domains) > 0 {
 		results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
 		jsonBytes, err := json.Marshal(results)

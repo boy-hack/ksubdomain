@@ -8,12 +8,12 @@ import (
 
 var testCommand = &cli.Command{
 	Name:  string(options.TestType),
-	Usage: "测试本地网卡的最大发送速度",
+	Usage: "Test the maximum sending speed of the local network interface",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "eth",
 			Aliases: []string{"e"},
-			Usage:   "指定网卡名称，获取该网卡的详细信息",
+			Usage:   "Specify network interface name to get its detailed information",
 		},
 	},
 	Action: func(c *cli.Context) error {

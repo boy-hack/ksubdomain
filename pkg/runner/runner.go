@@ -21,33 +21,33 @@ import (
 	"go.uber.org/ratelimit"
 )
 
-// Runner 表示子域名扫描的运行时结构
+// Runner represents the runtime structure for subdomain scanning
 type Runner struct {
-	statusDB        *statusdb.StatusDb // 状态数据库
-	options         *options.Options   // 配置选项
-	rateLimiter     ratelimit.Limiter  // 速率限制器
-	pcapHandle      *pcap.Handle       // 网络抓包句柄
-	successCount    uint64             // 成功数量
-	sendCount       uint64             // 发送数量
-	receiveCount    uint64             // 接收数量
-	failedCount     uint64             // 失败数量
-	domainChan      chan string        // 域名发送通道
-	resultChan      chan result.Result // 结果接收通道
-	listenPort      int                // 监听端口
-	dnsID           uint16             // DNS请求ID
-	maxRetryCount   int                // 最大重试次数
-	timeoutSeconds  int64              // 超时秒数
-	initialLoadDone chan struct{}      // 初始加载完成信号
-	predictLoadDone chan struct{}      // predict加载完成信号
-	startTime       time.Time          // 开始时间
-	stopSignal      chan struct{}      // 停止信号
+	statusDB        *statusdb.StatusDb // Status database
+	options         *options.Options   // Configuration options
+	rateLimiter     ratelimit.Limiter  // Rate limiter
+	pcapHandle      *pcap.Handle       // Network capture handle
+	successCount    uint64             // Success count
+	sendCount       uint64             // Send count
+	receiveCount    uint64             // Receive count
+	failedCount     uint64             // Failed count
+	domainChan      chan string        // Domain sending channel
+	resultChan      chan result.Result // Result receiving channel
+	listenPort      int                // Listening port
+	dnsID           uint16             // DNS request ID
+	maxRetryCount   int                // Maximum retry count
+	timeoutSeconds  int64              // Timeout in seconds
+	initialLoadDone chan struct{}      // Initial load done signal
+	predictLoadDone chan struct{}      // Predict load done signal
+	startTime       time.Time          // Start time
+	stopSignal      chan struct{}      // Stop signal
 }
 
 func init() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-// New 创建一个新的Runner实例
+// New creates a new Runner instance
 func New(opt *options.Options) (*Runner, error) {
 	var err error
 	version := pcap.Version()
@@ -56,52 +56,52 @@ func New(opt *options.Options) (*Runner, error) {
 	r.options = opt
 	r.statusDB = statusdb.CreateMemoryDB()
 
-	// 记录DNS服务器信息
-	gologger.Infof("默认DNS服务器: %s\n", core.SliceToString(opt.Resolvers))
+	// Log DNS server information
+	gologger.Infof("Default DNS servers: %s\n", core.SliceToString(opt.Resolvers))
 	if len(opt.SpecialResolvers) > 0 {
 		var keys []string
 		for k := range opt.SpecialResolvers {
 			keys = append(keys, k)
 		}
-		gologger.Infof("特殊DNS服务器: %s\n", core.SliceToString(keys))
+		gologger.Infof("Special DNS servers: %s\n", core.SliceToString(keys))
 	}
 
-	// 初始化网络设备
+	// Initialize network device
 	r.pcapHandle, err = device.PcapInit(opt.EtherInfo.Device)
 	if err != nil {
 		return nil, err
 	}
 
-	// 设置速率限制
+	// Set rate limit
 	cpuLimit := float64(runtime.NumCPU() * 10000)
 	rateLimit := int(math.Min(cpuLimit, float64(opt.Rate)))
-	
-	// Mac 平台优化: BPF 缓冲区限制较严格
-	// 建议速率 < 50000 pps 以避免缓冲区溢出
-	if runtime.GOOS == "darwin" && rateLimit > 50000 {
-		gologger.Warningf("Mac 平台检测到: 当前速率 %d pps 可能导致缓冲区问题\n", rateLimit)
-		gologger.Warningf("建议: 使用 -b 参数限制带宽 (如 -b 5m) 或降低速率\n")
-		gologger.Warningf("提示: Mac BPF 缓冲区已优化至 2MB,但仍建议速率 < 50000 pps\n")
-	}
-	
-	r.rateLimiter = ratelimit.New(rateLimit)
-	gologger.Infof("速率限制: %d pps\n", rateLimit)
 
-	// 初始化通道
+	// Mac platform optimization: BPF buffer has stricter limits.
+	// Recommended rate < 50000 pps to avoid buffer overflow.
+	if runtime.GOOS == "darwin" && rateLimit > 50000 {
+		gologger.Warningf("Mac platform detected: current rate %d pps may cause buffer issues\n", rateLimit)
+		gologger.Warningf("Suggestion: use -b flag to limit bandwidth (e.g., -b 5m) or lower the rate\n")
+		gologger.Warningf("Note: Mac BPF buffer has been optimized to 2MB, but rate < 50000 pps is still recommended\n")
+	}
+
+	r.rateLimiter = ratelimit.New(rateLimit)
+	gologger.Infof("Rate limit: %d pps\n", rateLimit)
+
+	// Initialize channels
 	r.domainChan = make(chan string, 50000)
 	r.resultChan = make(chan result.Result, 5000)
 	r.stopSignal = make(chan struct{})
 
-	// 获取空闲端口
+	// Get a free port
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
 	r.listenPort = freePort
-	gologger.Infof("监听端口: %d\n", freePort)
+	gologger.Infof("Listening port: %d\n", freePort)
 
-	// 设置其他参数
-	r.dnsID = 0x2021 // ksubdomain的生日
+	// Set other parameters
+	r.dnsID = 0x2021 // ksubdomain's birthday
 	r.maxRetryCount = opt.Retry
 	r.timeoutSeconds = int64(opt.TimeOut)
 	r.initialLoadDone = make(chan struct{})
@@ -110,12 +110,12 @@ func New(opt *options.Options) (*Runner, error) {
 	return r, nil
 }
 
-// selectDNSServer 根据域名智能选择DNS服务器
+// selectDNSServer intelligently selects a DNS server based on the domain name
 func (r *Runner) selectDNSServer(domain string) string {
 	dnsServers := r.options.Resolvers
 	specialDNSServers := r.options.SpecialResolvers
 
-	// 根据域名后缀选择特定DNS服务器
+	// Select a specific DNS server based on domain suffix
 	if len(specialDNSServers) > 0 {
 		for suffix, servers := range specialDNSServers {
 			if strings.HasSuffix(domain, suffix) {
@@ -125,17 +125,17 @@ func (r *Runner) selectDNSServer(domain string) string {
 		}
 	}
 
-	// 随机选择一个DNS服务器
+	// Randomly select a DNS server
 	idx := getRandomIndex() % len(dnsServers)
 	return dnsServers[idx]
 }
 
-// getRandomIndex 获取随机索引
+// getRandomIndex returns a random index
 func getRandomIndex() int {
 	return int(rand.Int31())
 }
 
-// updateStatusBar 更新进度条状态
+// updateStatusBar updates the progress bar status
 func (r *Runner) updateStatusBar() {
 	if r.options.ProcessBar != nil {
 		queueLength := r.statusDB.Length()
@@ -152,18 +152,18 @@ func (r *Runner) updateStatusBar() {
 	}
 }
 
-// loadDomainsFromSource 从源加载域名
+// loadDomainsFromSource loads domains from the source channel
 func (r *Runner) loadDomainsFromSource(wg *sync.WaitGroup) {
 	defer wg.Done()
-	// 从域名源加载域名
+	// Load domains from the domain source
 	for domain := range r.options.Domain {
 		r.domainChan <- domain
 	}
-	// 通知初始加载完成
+	// Notify that the initial load is complete
 	r.initialLoadDone <- struct{}{}
 }
 
-// monitorProgress 监控扫描进度
+// monitorProgress monitors the scan progress
 func (r *Runner) monitorProgress(ctx context.Context, cancelFunc context.CancelFunc, wg *sync.WaitGroup) {
 	var initialLoadCompleted bool = false
 	var initialLoadPredict bool = false
@@ -173,20 +173,20 @@ func (r *Runner) monitorProgress(ctx context.Context, cancelFunc context.CancelF
 	for {
 		select {
 		case <-ticker.C:
-			// 更新状态栏
+			// Update status bar
 			r.updateStatusBar()
-			// 检查是否完成
+			// Check if scan is complete
 			if initialLoadCompleted && initialLoadPredict {
 				queueLength := r.statusDB.Length()
 				if queueLength <= 0 {
 					gologger.Printf("\n")
-					gologger.Infof("扫描完毕")
-					cancelFunc() // 使用传递的cancelFunc
+					gologger.Infof("Scan completed")
+					cancelFunc() // Use the passed cancelFunc
 					return
 				}
 			}
 		case <-r.initialLoadDone:
-			// 初始加载完成后启动重试机制
+			// Start retry mechanism after initial load is complete
 			go r.retry(ctx)
 			initialLoadCompleted = true
 		case <-r.predictLoadDone:
@@ -197,7 +197,7 @@ func (r *Runner) monitorProgress(ctx context.Context, cancelFunc context.CancelF
 	}
 }
 
-// processPredictedDomains 处理预测的域名
+// processPredictedDomains handles predicted domain names
 func (r *Runner) processPredictedDomains(ctx context.Context, wg *sync.WaitGroup, predictChan chan string) {
 	defer wg.Done()
 	for {
@@ -210,72 +210,72 @@ func (r *Runner) processPredictedDomains(ctx context.Context, wg *sync.WaitGroup
 	}
 }
 
-// RunEnumeration 开始子域名枚举过程
+// RunEnumeration starts the subdomain enumeration process
 func (r *Runner) RunEnumeration(ctx context.Context) {
-	// 创建可取消的上下文
+	// Create a cancellable context
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
-	// 创建等待组，现在需要等待5个goroutine（添加了sendCycle和handleResult）
+	// Create wait group; need to wait for 5 goroutines (recv, send, monitor, result, load)
 	wg := &sync.WaitGroup{}
 	wg.Add(5)
 
-	// 启动接收处理
+	// Start receive processing
 	go r.recvChanel(ctx, wg)
 
-	// 启动发送处理（加入waitgroup管理）
+	// Start send processing (under waitgroup management)
 	go r.sendCycleWithContext(ctx, wg)
 
-	// 监控进度
+	// Monitor progress
 	go r.monitorProgress(ctx, cancelFunc, wg)
 
-	// 创建预测域名通道
+	// Create predicted domain channel
 	predictChan := make(chan string, 1000)
 	if r.options.Predict {
 		wg.Add(1)
-		// 启动预测域名处理
+		// Start predicted domain processing
 		go r.processPredictedDomains(ctx, wg, predictChan)
 	} else {
 		r.predictLoadDone <- struct{}{}
 	}
 
-	// 启动结果处理（加入waitgroup管理）
+	// Start result processing (under waitgroup management)
 	go r.handleResultWithContext(ctx, wg, predictChan)
 
-	// 从源加载域名
+	// Load domains from source
 	go r.loadDomainsFromSource(wg)
 
-	// 等待所有协程完成
+	// Wait for all goroutines to complete
 	wg.Wait()
 
-	// 关闭所有通道
+	// Close all channels
 	close(predictChan)
-	// 安全关闭通道
+	// Safely close channels
 	close(r.resultChan)
 	close(r.domainChan)
 }
 
-// Close 关闭Runner并释放资源
+// Close closes the Runner and releases resources
 func (r *Runner) Close() {
-	// 关闭网络抓包句柄
+	// Close network capture handle
 	if r.pcapHandle != nil {
 		r.pcapHandle.Close()
 	}
 
-	// 关闭状态数据库
+	// Close status database
 	if r.statusDB != nil {
 		r.statusDB.Close()
 	}
 
-	// 关闭所有输出器
+	// Close all output handlers
 	for _, out := range r.options.Writer {
 		err := out.Close()
 		if err != nil {
-			gologger.Errorf("关闭输出器失败: %v", err)
+			gologger.Errorf("Failed to close output handler: %v", err)
 		}
 	}
 
-	// 关闭进度条
+	// Close progress bar
 	if r.options.ProcessBar != nil {
 		r.options.ProcessBar.Close()
 	}

@@ -29,44 +29,44 @@ func (f *CsvOutput) WriteDomainResult(domain result.Result) error {
 }
 
 func (f *CsvOutput) Close() error {
-	gologger.Infof("写入csv文件:%s\n", f.filename)
+	gologger.Infof("Writing CSV file: %s\n", f.filename)
 
-	// 检查结果数量
+	// Check result count
 	if len(f.domains) == 0 {
-		gologger.Infof("没有发现子域名结果，CSV文件将为空\n")
+		gologger.Infof("No subdomain results found, CSV file will be empty\n")
 		return nil
 	}
 
 	results := utils.WildFilterOutputResult(f.wildFilterMode, f.domains)
-	gologger.Infof("过滤后结果数量: %d\n", len(results))
+	gologger.Infof("Filtered result count: %d\n", len(results))
 
-	// 检查过滤后结果
+	// Check filtered results
 	if len(results) == 0 {
-		gologger.Infof("经过通配符过滤后没有有效结果，CSV文件将为空\n")
+		gologger.Infof("No valid results after wildcard filtering, CSV file will be empty\n")
 		return nil
 	}
 
-	// 创建CSV文件
+	// Create CSV file
 	file, err := os.Create(f.filename)
 	if err != nil {
-		gologger.Errorf("创建CSV文件失败: %v", err)
+		gologger.Errorf("Failed to create CSV file: %v", err)
 		return err
 	}
 	defer file.Close()
 
-	// 创建CSV写入器
+	// Create CSV writer
 	writer := csv.NewWriter(file)
 
-	// 写入CSV头部
+	// Write CSV header
 	err = writer.Write([]string{"Subdomain", "Answers"})
 	if err != nil {
-		gologger.Errorf("写入CSV头部失败: %v", err)
+		gologger.Errorf("Failed to write CSV header: %v", err)
 		return err
 	}
 
-	// 写入数据行
+	// Write data rows
 	for _, result := range results {
-		// 将Answers数组转换为单个字符串，用分号分隔
+		// Convert Answers array to a single string separated by semicolons
 		answersStr := ""
 		if len(result.Answers) > 0 {
 			answersStr = result.Answers[0]
@@ -77,11 +77,11 @@ func (f *CsvOutput) Close() error {
 
 		err = writer.Write([]string{result.Subdomain, answersStr})
 		if err != nil {
-			gologger.Errorf("写入CSV数据行失败: %v", err)
+			gologger.Errorf("Failed to write CSV data row: %v", err)
 			continue
 		}
 	}
 	writer.Flush()
-	gologger.Infof("CSV文件写入成功，共写入 %d 条记录", len(results))
+	gologger.Infof("CSV file written successfully, %d records written", len(results))
 	return nil
 }

@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestBasicVerification 基础验证测试
+// TestBasicVerification is a basic verification test
 func TestBasicVerification(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过集成测试")
+		t.Skip("Skipping integration test")
 	}
 
-	// 已知存在的域名
+	// Known existing domains
 	domains := []string{
 		"www.baidu.com",
 		"www.google.com",
@@ -35,7 +35,7 @@ func TestBasicVerification(t *testing.T) {
 	}
 	close(domainChan)
 
-	// 收集结果
+	// Collect results
 	results := &testOutputter{results: make([]result.Result, 0)}
 
 	opt := &options.Options{
@@ -60,26 +60,26 @@ func TestBasicVerification(t *testing.T) {
 	r.RunEnumeration(ctx)
 	r.Close()
 
-	// 验证结果
-	assert.Greater(t, len(results.results), 0, "应该至少找到一个域名")
+	// Verify results
+	assert.Greater(t, len(results.results), 0, "Should find at least one domain")
 
 	for _, res := range results.results {
-		assert.NotEmpty(t, res.Subdomain, "域名不应为空")
-		assert.Greater(t, len(res.Answers), 0, "应该有至少一个答案")
-		t.Logf("找到: %s => %v", res.Subdomain, res.Answers)
+		assert.NotEmpty(t, res.Subdomain, "Domain should not be empty")
+		assert.Greater(t, len(res.Answers), 0, "Should have at least one answer")
+		t.Logf("Found: %s => %v", res.Subdomain, res.Answers)
 	}
 }
 
-// TestCNAMEParsing 测试 CNAME 解析正确性
+// TestCNAMEParsing tests CNAME record parsing correctness
 func TestCNAMEParsing(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过集成测试")
+		t.Skip("Skipping integration test")
 	}
 
-	// 已知有 CNAME 记录的域名
+	// Domains known to have CNAME records
 	domains := []string{
-		"www.github.com", // 通常有 CNAME
-		"www.baidu.com",  // 可能有 CNAME
+		"www.github.com", // usually has CNAME
+		"www.baidu.com",  // may have CNAME
 	}
 
 	domainChan := make(chan string, len(domains))
@@ -112,31 +112,31 @@ func TestCNAMEParsing(t *testing.T) {
 	r.RunEnumeration(ctx)
 	r.Close()
 
-	// 检查 CNAME 记录格式
+	// Check CNAME record format
 	for _, res := range results.results {
 		for _, answer := range res.Answers {
-			// 不应该出现 "comcom" 等错误拼接
-			assert.NotContains(t, answer, "comcom", "不应该有错误的字符串拼接")
-			assert.NotContains(t, answer, "\x00", "不应该包含空字符")
+			// Should not have incorrect string concatenation like "comcom"
+			assert.NotContains(t, answer, "comcom", "Should not have incorrect string concatenation")
+			assert.NotContains(t, answer, "\x00", "Should not contain null characters")
 
 			t.Logf("%s => %s", res.Subdomain, answer)
 		}
 	}
 }
 
-// TestHighSpeed 高速扫描测试
+// TestHighSpeed tests high-speed scanning
 func TestHighSpeed(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过集成测试")
+		t.Skip("Skipping integration test")
 	}
 
-	// 生成100个测试域名
+	// Generate 100 test domains
 	domains := make([]string, 100)
 	for i := 0; i < 100; i++ {
 		if i%2 == 0 {
-			domains[i] = "www.baidu.com" // 存在的
+			domains[i] = "www.baidu.com" // exists
 		} else {
-			domains[i] = "nonexistent12345.baidu.com" // 不存在的
+			domains[i] = "nonexistent12345.baidu.com" // does not exist
 		}
 	}
 
@@ -149,7 +149,7 @@ func TestHighSpeed(t *testing.T) {
 	results := &testOutputter{results: make([]result.Result, 0)}
 
 	opt := &options.Options{
-		Rate:      10000, // 高速
+		Rate:      10000, // high speed
 		Domain:    domainChan,
 		Resolvers: options.GetResolvers(nil),
 		Silent:    true,
@@ -170,17 +170,17 @@ func TestHighSpeed(t *testing.T) {
 	r.RunEnumeration(ctx)
 	r.Close()
 
-	// 应该找到大约50个(存在的域名)
-	assert.Greater(t, len(results.results), 40, "高速模式应该找到大部分存在的域名")
-	assert.Less(t, len(results.results), 60, "不应该有太多误报")
+	// Should find approximately 50 (existing domains)
+	assert.Greater(t, len(results.results), 40, "High-speed mode should find most existing domains")
+	assert.Less(t, len(results.results), 60, "Should not have too many false positives")
 
-	t.Logf("高速扫描结果: 找到 %d/%d 个域名", len(results.results), len(domains))
+	t.Logf("High-speed scan results: found %d/%d domains", len(results.results), len(domains))
 }
 
-// TestRetryMechanism 重试机制测试
+// TestRetryMechanism tests the retry mechanism
 func TestRetryMechanism(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过集成测试")
+		t.Skip("Skipping integration test")
 	}
 
 	domains := []string{"www.example.com"}
@@ -193,7 +193,7 @@ func TestRetryMechanism(t *testing.T) {
 
 	results := &testOutputter{results: make([]result.Result, 0)}
 
-	// 测试不同的重试次数
+	// Test different retry counts
 	retryCounts := []int{1, 3, 5}
 
 	for _, retryCount := range retryCounts {
@@ -222,32 +222,32 @@ func TestRetryMechanism(t *testing.T) {
 
 		cancel()
 
-		t.Logf("重试次数 %d: 耗时 %v, 结果数 %d",
+		t.Logf("Retry count %d: elapsed %v, results %d",
 			retryCount, elapsed, len(results.results))
 	}
 }
 
-// TestWildcardDetection 泛解析检测测试
+// TestWildcardDetection tests wildcard DNS detection
 func TestWildcardDetection(t *testing.T) {
 	if testing.Short() {
-		t.Skip("跳过集成测试")
+		t.Skip("Skipping integration test")
 	}
 
-	// 测试已知的泛解析域名
-	// 注意: 这需要一个实际的泛解析域名
-	domain := "baidu.com" // 示例
+	// Test a known wildcard domain
+	// Note: requires an actual wildcard domain
+	domain := "baidu.com" // example
 
 	isWild, ips := runner.IsWildCard(domain)
 
 	if isWild {
-		t.Logf("检测到泛解析: %s, IPs: %v", domain, ips)
-		assert.Greater(t, len(ips), 0, "泛解析应该返回IP列表")
+		t.Logf("Wildcard detected: %s, IPs: %v", domain, ips)
+		assert.Greater(t, len(ips), 0, "Wildcard should return an IP list")
 	} else {
-		t.Logf("未检测到泛解析: %s", domain)
+		t.Logf("No wildcard detected: %s", domain)
 	}
 }
 
-// testOutputter 测试用输出器
+// testOutputter is a test output handler
 type testOutputter struct {
 	results []result.Result
 	mu      sync.Mutex

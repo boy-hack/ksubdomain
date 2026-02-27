@@ -9,59 +9,59 @@ import (
 )
 
 type Item struct {
-	Domain      string    // 查询域名
-	Dns         string    // 查询dns
-	Time        time.Time // 发送时间
-	Retry       int       // 重试次数
-	DomainLevel int       // 域名层级
+	Domain      string    // Query domain name
+	Dns         string    // Query DNS server
+	Time        time.Time // Send time
+	Retry       int       // Retry count
+	DomainLevel int       // Domain level
 }
 
-// StatusDb 使用分片锁实现的高性能状态数据库
+// StatusDb is a high-performance status database implemented with sharded locks
 type StatusDb struct {
-	// 使用分片锁减少锁竞争
+	// Use sharded locks to reduce lock contention
 	shards     []*DbShard
 	shardCount int
 	length     int64
-	// 添加过期时间配置
+	// Expiration time configuration
 	expiration time.Duration
-	// 清理频率
+	// Cleanup frequency
 	cleanupInterval time.Duration
 	stopCleanup     chan struct{}
 }
 
-// DbShard 数据库分片，每个分片有自己的锁
+// DbShard is a database shard with its own lock
 type DbShard struct {
-	items map[string]*Item // 使用指针存储Item，减少内存使用
+	items map[string]*Item // Use pointer to Item to reduce memory usage
 	mu    sync.RWMutex
 }
 
-// CreateMemoryDB 创建一个内存数据库
+// CreateMemoryDB creates an in-memory database
 func CreateMemoryDB() *StatusDb {
-	// 使用64个分片以减少锁竞争
+	// Use 64 shards to reduce lock contention
 	shardCount := 64
 	db := &StatusDb{
 		shards:          make([]*DbShard, shardCount),
 		shardCount:      shardCount,
 		length:          0,
-		expiration:      5 * time.Minute, // 默认条目过期时间
-		cleanupInterval: 3 * time.Minute, // 默认清理频率
+		expiration:      5 * time.Minute, // Default entry expiration time
+		cleanupInterval: 3 * time.Minute, // Default cleanup frequency
 		stopCleanup:     make(chan struct{}),
 	}
 
-	// 初始化每个分片
+	// Initialize each shard
 	for i := 0; i < shardCount; i++ {
 		db.shards[i] = &DbShard{
 			items: make(map[string]*Item),
 		}
 	}
 
-	// 启动自动清理协程
+	// Start the automatic cleanup goroutine
 	go db.startCleanupTimer()
 
 	return db
 }
 
-// 定期清理过期数据
+// startCleanupTimer periodically cleans up expired data
 func (r *StatusDb) startCleanupTimer() {
 	ticker := time.NewTicker(r.cleanupInterval)
 	defer ticker.Stop()
@@ -76,7 +76,7 @@ func (r *StatusDb) startCleanupTimer() {
 	}
 }
 
-// 清理过期数据
+// cleanup removes expired entries
 func (r *StatusDb) cleanup() {
 	now := time.Now()
 	threshold := now.Add(-r.expiration)
@@ -93,74 +93,74 @@ func (r *StatusDb) cleanup() {
 	}
 }
 
-// SetExpiration 设置条目过期时间
+// SetExpiration sets the entry expiration time
 func (r *StatusDb) SetExpiration(d time.Duration) {
 	r.expiration = d
 }
 
-// getShard 获取给定域名应该所在的分片，使用高性能哈希函数
-// 优化点3: 使用 xxhash 替换 FNV 哈希
-// 原因: xxhash 性能是 FNV 的 2-3 倍,且分布质量更好
-// 收益: 状态表操作性能提升 5-10%
+// getShard returns the shard for the given domain name, using a high-performance hash function.
+// Optimization point 3: use xxhash instead of FNV hash.
+// Reason: xxhash is 2-3x faster than FNV with better distribution quality.
+// Benefit: 5-10% performance improvement for status table operations.
 func (r *StatusDb) getShard(domain string) *DbShard {
-	// xxhash: 极速非加密哈希,专为性能优化
-	// 比 FNV 快 2-3 倍,比 Go 内置 map 哈希更均匀
+	// xxhash: ultra-fast non-cryptographic hash, optimized for performance.
+	// 2-3x faster than FNV, more uniform distribution than Go's built-in map hash.
 	hash := xxhash.Sum64String(domain)
 	return r.shards[hash%uint64(r.shardCount)]
 }
 
-// Add 添加一个项
+// Add adds an item
 func (r *StatusDb) Add(domain string, tableData Item) {
 	shard := r.getShard(domain)
 	shard.mu.Lock()
 	_, exists := shard.items[domain]
 	if !exists {
 		atomic.AddInt64(&r.length, 1)
-		// 复制一份存入map，使用指针减少内存
+		// Make a copy and store with pointer to reduce memory usage
 		itemCopy := tableData
 		shard.items[domain] = &itemCopy
 	} else {
-		// 更新现有条目
+		// Update existing entry
 		*(shard.items[domain]) = tableData
 	}
 	shard.mu.Unlock()
 }
 
-// Set 设置一个项
+// Set sets an item
 func (r *StatusDb) Set(domain string, tableData Item) {
 	shard := r.getShard(domain)
 	shard.mu.Lock()
 	if _, exists := shard.items[domain]; !exists {
-		// 新条目
+		// New entry
 		atomic.AddInt64(&r.length, 1)
 		itemCopy := tableData
 		shard.items[domain] = &itemCopy
 	} else {
-		// 更新现有条目
+		// Update existing entry
 		*(shard.items[domain]) = tableData
 	}
 	shard.mu.Unlock()
 }
 
-// Get 获取一个项
+// Get retrieves an item
 func (r *StatusDb) Get(domain string) (Item, bool) {
 	shard := r.getShard(domain)
 	shard.mu.RLock()
 	item, ok := shard.items[domain]
 	var result Item
 	if ok {
-		result = *item // 解引用返回副本
+		result = *item // Dereference to return a copy
 	}
 	shard.mu.RUnlock()
 	return result, ok
 }
 
-// Length 获取元素总数
+// Length returns the total number of elements
 func (r *StatusDb) Length() int64 {
 	return atomic.LoadInt64(&r.length)
 }
 
-// Del 删除一个项
+// Del deletes an item
 func (r *StatusDb) Del(domain string) {
 	shard := r.getShard(domain)
 	shard.mu.Lock()
@@ -172,42 +172,42 @@ func (r *StatusDb) Del(domain string) {
 	shard.mu.Unlock()
 }
 
-// Scan 遍历所有元素，优化并行性能
+// Scan iterates over all elements, optimized for parallel performance
 func (r *StatusDb) Scan(f func(key string, value Item) error) {
-	// 安全检查：如果回调函数为nil，直接返回
+	// Safety check: return immediately if callback is nil
 	if f == nil {
 		return
 	}
 
-	// 首先收集所有数据的副本，避免在遍历过程中持有锁
+	// Collect copies of all data to avoid holding locks during iteration
 	allItems := make(map[string]Item)
 
-	// 依次获取每个分片的数据
+	// Acquire data from each shard sequentially
 	for _, shard := range r.shards {
 		shard.mu.RLock()
 		for k, v := range shard.items {
-			if v != nil { // 确保不是nil指针
+			if v != nil { // Ensure it's not a nil pointer
 				allItems[k] = *v
 			}
 		}
 		shard.mu.RUnlock()
 	}
 
-	// 在获得所有数据副本后，执行回调
+	// Execute callback after obtaining all data copies
 	for k, v := range allItems {
-		// 如果回调返回错误，记录但继续执行
+		// If callback returns an error, log it and continue
 		if err := f(k, v); err != nil {
 			continue
 		}
 	}
 }
 
-// Close 关闭数据库
+// Close closes the database
 func (r *StatusDb) Close() {
-	// 停止清理协程
+	// Stop the cleanup goroutine
 	close(r.stopCleanup)
 
-	// 清空所有分片数据
+	// Clear all shard data
 	for _, shard := range r.shards {
 		shard.mu.Lock()
 		shard.items = nil

@@ -11,17 +11,17 @@ import (
 type ScreenOutput struct {
 	windowsWidth int
 	silent       bool
-	onlyDomain   bool  // 修复 Issue #67: 只输出域名
+	onlyDomain   bool // Fix Issue #67: output domain name only
 }
 
-// NewScreenOutput 创建屏幕输出器
-// 修复 Issue #67: 支持 onlyDomain 参数
+// NewScreenOutput creates a screen output handler.
+// Fix Issue #67: supports optional onlyDomain parameter.
 func NewScreenOutput(silent bool, onlyDomain ...bool) (*ScreenOutput, error) {
 	windowsWidth := core.GetWindowWith()
 	s := new(ScreenOutput)
 	s.windowsWidth = windowsWidth
 	s.silent = silent
-	// 支持可选的 onlyDomain 参数 (向后兼容)
+	// Support optional onlyDomain parameter (backward compatible)
 	if len(onlyDomain) > 0 {
 		s.onlyDomain = onlyDomain[0]
 	}
@@ -30,20 +30,20 @@ func NewScreenOutput(silent bool, onlyDomain ...bool) (*ScreenOutput, error) {
 
 func (s *ScreenOutput) WriteDomainResult(domain result.Result) error {
 	var msg string
-	
-	// 修复 Issue #67: 支持只输出域名模式
+
+	// Fix Issue #67: support domain-only output mode
 	if s.onlyDomain {
-		// 只输出域名,不显示 IP 和其他记录
+		// Output domain name only, without IP or other records
 		msg = domain.Subdomain
 	} else {
-		// 完整输出: 域名 => 记录1 => 记录2
+		// Full output: domain => record1 => record2
 		var domains []string = []string{domain.Subdomain}
 		for _, item := range domain.Answers {
 			domains = append(domains, item)
 		}
 		msg = strings.Join(domains, " => ")
 	}
-	
+
 	if !s.silent {
 		screenWidth := s.windowsWidth - len(msg) - 1
 		gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")

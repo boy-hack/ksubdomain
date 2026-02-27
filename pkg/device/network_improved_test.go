@@ -10,71 +10,71 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGetDefaultRouteInterface 测试获取默认路由网卡
+// TestGetDefaultRouteInterface tests getting the default route interface
 func TestGetDefaultRouteInterface(t *testing.T) {
-	// 跳过需要root权限的测试
+	// Skip tests that require root privileges
 	if !hasAdminPrivileges() {
-		t.Skip("需要管理员权限运行此测试")
+		t.Skip("Requires administrator privileges to run this test")
 	}
 
 	etherTable, err := GetDefaultRouteInterface()
 
-	// 在CI环境或无网络环境可能失败
+	// May fail in CI or no-network environments
 	if err != nil {
-		t.Logf("获取默认路由失败(可能是环境问题): %v", err)
+		t.Logf("Failed to get default route (may be an environment issue): %v", err)
 		return
 	}
 
-	// 验证返回的数据
+	// Validate the returned data
 	assert.NotNil(t, etherTable)
-	assert.NotEmpty(t, etherTable.Device, "设备名不应为空")
-	assert.NotNil(t, etherTable.SrcIp, "源IP不应为空")
-	assert.False(t, etherTable.SrcIp.IsLoopback(), "不应是回环地址")
-	assert.NotEqual(t, "00:00:00:00:00:00", etherTable.SrcMac.String(), "MAC地址不应全零")
+	assert.NotEmpty(t, etherTable.Device, "Device name should not be empty")
+	assert.NotNil(t, etherTable.SrcIp, "Source IP should not be nil")
+	assert.False(t, etherTable.SrcIp.IsLoopback(), "Should not be a loopback address")
+	assert.NotEqual(t, "00:00:00:00:00:00", etherTable.SrcMac.String(), "MAC address should not be all zeros")
 
-	t.Logf("成功获取网卡: Device=%s, IP=%s, MAC=%s, Gateway MAC=%s",
+	t.Logf("Successfully obtained interface: Device=%s, IP=%s, MAC=%s, Gateway MAC=%s",
 		etherTable.Device, etherTable.SrcIp, etherTable.SrcMac, etherTable.DstMac)
 }
 
-// TestResolveGatewayMAC 测试ARP解析网关MAC
+// TestResolveGatewayMAC tests ARP gateway MAC resolution
 func TestResolveGatewayMAC(t *testing.T) {
 	if !hasAdminPrivileges() {
-		t.Skip("需要管理员权限运行此测试")
+		t.Skip("Requires administrator privileges to run this test")
 	}
 
-	// 获取本地网络信息
+	// Get local network information
 	etherTable, err := GetDefaultRouteInterface()
 	if err != nil {
-		t.Skip("无法获取网络信息，跳过ARP测试")
+		t.Skip("Cannot get network info, skipping ARP test")
 	}
 
-	// 尝试解析本地网关
-	// 注意：这个测试在实际环境中运行
+	// Try to resolve the local gateway
+	// Note: this test runs in a real network environment
 	gatewayIP := getDefaultGateway()
 	if gatewayIP == nil {
-		t.Skip("无法获取默认网关，跳过ARP测试")
+		t.Skip("Cannot get default gateway, skipping ARP test")
 	}
 
 	srcMAC := net.HardwareAddr(etherTable.SrcMac)
 	mac, err := resolveGatewayMAC(etherTable.Device, etherTable.SrcIp, srcMAC, gatewayIP)
 
 	if err != nil {
-		t.Logf("ARP解析失败(可能是网络环境): %v", err)
+		t.Logf("ARP resolution failed (may be a network environment issue): %v", err)
 		return
 	}
 
 	assert.NotNil(t, mac)
-	assert.Len(t, mac, 6, "MAC地址应该是6字节")
-	assert.NotEqual(t, "00:00:00:00:00:00", mac.String(), "MAC地址不应全零")
-	assert.NotEqual(t, "ff:ff:ff:ff:ff:ff", mac.String(), "MAC地址不应是广播地址")
+	assert.Len(t, mac, 6, "MAC address should be 6 bytes")
+	assert.NotEqual(t, "00:00:00:00:00:00", mac.String(), "MAC address should not be all zeros")
+	assert.NotEqual(t, "ff:ff:ff:ff:ff:ff", mac.String(), "MAC address should not be broadcast address")
 
-	t.Logf("成功解析网关MAC: %s -> %s", gatewayIP, mac)
+	t.Logf("Successfully resolved gateway MAC: %s -> %s", gatewayIP, mac)
 }
 
-// TestValidateInterface 测试网卡验证
+// TestValidateInterface tests interface validation
 func TestValidateInterface(t *testing.T) {
 	if !hasAdminPrivileges() {
-		t.Skip("需要管理员权限运行此测试")
+		t.Skip("Requires administrator privileges to run this test")
 	}
 
 	tests := []struct {
@@ -83,7 +83,7 @@ func TestValidateInterface(t *testing.T) {
 		expected   bool
 	}{
 		{
-			name: "无效的网卡名",
+			name: "Invalid interface name",
 			etherTable: &EtherTable{
 				Device: "invalid_device_xyz",
 				SrcIp:  net.ParseIP("192.168.1.100"),
@@ -91,7 +91,7 @@ func TestValidateInterface(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "空网卡名",
+			name: "Empty interface name",
 			etherTable: &EtherTable{
 				Device: "",
 				SrcIp:  net.ParseIP("192.168.1.100"),
@@ -100,7 +100,7 @@ func TestValidateInterface(t *testing.T) {
 		},
 	}
 
-	// 添加一个有效网卡的测试
+	// Add a test for a valid interface
 	devices, err := pcap.FindAllDevs()
 	if err == nil && len(devices) > 0 {
 		validDevice := devices[0].Name
@@ -109,7 +109,7 @@ func TestValidateInterface(t *testing.T) {
 			etherTable *EtherTable
 			expected   bool
 		}{
-			name: "有效的网卡",
+			name: "Valid interface",
 			etherTable: &EtherTable{
 				Device: validDevice,
 				SrcIp:  net.ParseIP("192.168.1.100"),
@@ -126,13 +126,13 @@ func TestValidateInterface(t *testing.T) {
 	}
 }
 
-// TestAutoGetDevicesImproved 测试改进的自动获取方法
+// TestAutoGetDevicesImproved tests the improved auto-detection method
 func TestAutoGetDevicesImproved(t *testing.T) {
 	if !hasAdminPrivileges() {
-		t.Skip("需要管理员权限运行此测试")
+		t.Skip("Requires administrator privileges to run this test")
 	}
 
-	// 使用常见的公共DNS服务器
+	// Use common public DNS servers
 	testDNS := []string{
 		"8.8.8.8",
 		"1.1.1.1",
@@ -141,24 +141,24 @@ func TestAutoGetDevicesImproved(t *testing.T) {
 
 	etherTable, err := AutoGetDevicesImproved(testDNS)
 
-	// 在某些环境可能失败
+	// May fail in some environments
 	if err != nil {
-		t.Logf("自动获取网卡失败(环境问题): %v", err)
+		t.Logf("Auto interface detection failed (environment issue): %v", err)
 		return
 	}
 
 	assert.NotNil(t, etherTable)
 	assert.NotEmpty(t, etherTable.Device)
 	assert.NotNil(t, etherTable.SrcIp)
-	assert.False(t, etherTable.SrcIp.IsUnspecified(), "IP不应是未指定地址")
+	assert.False(t, etherTable.SrcIp.IsUnspecified(), "IP should not be unspecified address")
 
-	t.Logf("成功自动获取网卡: %+v", etherTable)
+	t.Logf("Successfully auto-detected interface: %+v", etherTable)
 }
 
-// BenchmarkGetDefaultRouteInterface 性能测试
+// BenchmarkGetDefaultRouteInterface performance test
 func BenchmarkGetDefaultRouteInterface(b *testing.B) {
 	if !hasAdminPrivileges() {
-		b.Skip("需要管理员权限运行此测试")
+		b.Skip("Requires administrator privileges to run this test")
 	}
 
 	b.ResetTimer()
@@ -167,21 +167,21 @@ func BenchmarkGetDefaultRouteInterface(b *testing.B) {
 	}
 }
 
-// BenchmarkResolveGatewayMAC 性能测试ARP解析
+// BenchmarkResolveGatewayMAC performance test for ARP resolution
 func BenchmarkResolveGatewayMAC(b *testing.B) {
 	if !hasAdminPrivileges() {
-		b.Skip("需要管理员权限运行此测试")
+		b.Skip("Requires administrator privileges to run this test")
 	}
 
-	// 准备测试数据
+	// Prepare test data
 	etherTable, err := GetDefaultRouteInterface()
 	if err != nil {
-		b.Skip("无法获取网络信息")
+		b.Skip("Cannot get network info")
 	}
 
 	gatewayIP := getDefaultGateway()
 	if gatewayIP == nil {
-		b.Skip("无法获取网关")
+		b.Skip("Cannot get gateway")
 	}
 
 	srcMAC := net.HardwareAddr(etherTable.SrcMac)
@@ -192,28 +192,28 @@ func BenchmarkResolveGatewayMAC(b *testing.B) {
 	}
 }
 
-// 辅助函数：检查是否有管理员权限
+// hasAdminPrivileges checks whether the process has administrator privileges
 func hasAdminPrivileges() bool {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows下检查是否能打开网卡
+		// On Windows, check if interfaces can be opened
 		devices, err := pcap.FindAllDevs()
 		return err == nil && len(devices) > 0
 	default:
-		// Unix系统检查UID
+		// On Unix systems, check UID
 		return runtime.GOOS == "darwin" || isRoot()
 	}
 }
 
-// 辅助函数：检查是否是root用户
+// isRoot checks whether the process is running as root
 func isRoot() bool {
-	// 尝试打开一个网卡来检查权限
+	// Try to open a network interface to check permissions
 	devices, err := pcap.FindAllDevs()
 	if err != nil || len(devices) == 0 {
 		return false
 	}
 
-	// 尝试打开第一个设备
+	// Try to open the first device
 	handle, err := pcap.OpenLive(devices[0].Name, 1024, false, time.Second)
 	if err != nil {
 		return false
@@ -222,9 +222,9 @@ func isRoot() bool {
 	return true
 }
 
-// 辅助函数：获取默认网关
+// getDefaultGateway is a helper function to get the default gateway
 func getDefaultGateway() net.IP {
-	// 简单实现，实际使用时应该解析路由表
+	// Simple implementation; production code should parse the routing table
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return nil
@@ -232,7 +232,7 @@ func getDefaultGateway() net.IP {
 	defer conn.Close()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	// 假设网关是 .1
+	// Assume the gateway is .1
 	ip := localAddr.IP.To4()
 	if ip != nil {
 		ip[3] = 1

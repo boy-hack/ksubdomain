@@ -1,7 +1,7 @@
-【已过时，待重写】
+[Outdated — pending rewrite]
 
-一个简单的调用例子
-注意: 不要启动多个ksubdomain，ksubdomain启动一个就可以发挥最大作用。
+A simple usage example.
+Note: Do not start multiple instances of ksubdomain. A single instance is enough to achieve maximum performance.
 
 ```go
 package main
@@ -55,26 +55,28 @@ func main() {
 	r.Close()
 }
 ```
-可以看到调用很简单，就是填写`options`参数，然后调用runner启动就好了，重要的是options填什么。
-options的参数结构
+
+As you can see, the usage is straightforward: fill in the `options` struct and call the runner to start. The key is knowing what to put in each option field.
+
+Options struct definition:
 ```go
 type Options struct {
-	Rate        int64              // 每秒发包速率
-	Domain      io.Reader          // 域名输入
-	DomainTotal int                // 扫描域名总数
-	Resolvers   []string           // dns resolvers
-	Silent      bool               // 安静模式
-	TimeOut     int                // 超时时间 单位(秒)
-	Retry       int                // 最大重试次数
-	Method      string             // verify模式 enum模式 test模式
-	DnsType     string             // dns类型 a ns aaaa
-	Writer      []outputter.Output // 输出结构
+	Rate        int64              // Packet send rate per second
+	Domain      io.Reader          // Domain input
+	DomainTotal int                // Total number of domains to scan
+	Resolvers   []string           // DNS resolvers
+	Silent      bool               // Silent mode
+	TimeOut     int                // Timeout in seconds
+	Retry       int                // Maximum retry count
+	Method      string             // verify mode / enum mode / test mode
+	DnsType     string             // DNS record type: a, ns, aaaa
+	Writer      []outputter.Output // Output handlers
 	ProcessBar  processbar.ProcessBar
-	EtherInfo   *device.EtherTable // 网卡信息
+	EtherInfo   *device.EtherTable // Network adapter info
 }
 ```
-1. ksubdomain底层接口只是一个dns验证器，如果要通过一级域名枚举，需要把全部的域名都放入`Domain`字段中，可以看enum参数是怎么写的 `cmd/ksubdomain/enum.go`
-2. Write参数是一个outputter.Output接口，用途是如何处理DNS返回的接口，ksubdomain已经内置了三种接口在 `runner/outputter/output`中，主要作用是把数据存入内存、数据写入文件、数据打印到屏幕，可以自己实现这个接口，实现自定义的操作。
-3. ProcessBar参数是一个processbar.ProcessBar接口，主要用途是将程序内`成功个数`、`发送个数`、`队列数`、`接收数`、`失败数`、`耗时`传递给用户，实现这个参数可以时时获取这些。
-4. EtherInfo是*device.EtherTable类型，用来获取网卡的信息，一般用函数`options.GetDeviceConfig()`即可自动获取网卡配置。
 
+1. The underlying interface of ksubdomain is just a DNS validator. If you want to enumerate subdomains from a root domain, you need to put all the full domain names into the `Domain` field. See how the enum command does it in `cmd/ksubdomain/enum.go`.
+2. The `Writer` field is an `outputter.Output` interface that defines how DNS responses are handled. ksubdomain ships with three built-in implementations in `runner/outputter/output`: store data in memory, write data to a file, and print data to the screen. You can implement this interface yourself for custom behavior.
+3. The `ProcessBar` field is a `processbar.ProcessBar` interface. Its purpose is to expose internal statistics—success count, sent count, queue length, received count, failed count, and elapsed time—to the caller in real time.
+4. `EtherInfo` is of type `*device.EtherTable` and is used to obtain network adapter information. You can usually just call `options.GetDeviceConfig()` to auto-detect the adapter configuration.

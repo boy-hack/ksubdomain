@@ -15,32 +15,32 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// GetDefaultRouteInterface 获取默认路由的网卡设备
-// 这是最可靠的方法，因为默认路由的网卡通常就是外网通信的网卡
+// GetDefaultRouteInterface retrieves the network interface for the default route.
+// This is the most reliable method because the default route interface is usually the one used for external communication.
 func GetDefaultRouteInterface() (*EtherTable, error) {
 	var defaultInterface string
 	var gatewayIP net.IP
 
 	switch runtime.GOOS {
 	case "windows":
-		// Windows: 使用 route print 获取默认路由
+		// Windows: use 'route print' to get the default route
 		cmd := exec.Command("route", "print", "0.0.0.0")
 		output, err := cmd.Output()
 		if err != nil {
-			return nil, fmt.Errorf("执行route命令失败: %v", err)
+			return nil, fmt.Errorf("failed to execute route command: %v", err)
 		}
 
-		// 解析输出获取默认网关和接口
+		// Parse output to get the default gateway and interface
 		lines := strings.Split(string(output), "\n")
 		for _, line := range lines {
 			if strings.Contains(line, "0.0.0.0") && strings.Contains(line, "0.0.0.0") {
 				fields := strings.Fields(line)
 				if len(fields) >= 5 {
 					gatewayIP = net.ParseIP(fields[2])
-					// 获取接口IP
+					// Get interface IP
 					localIP := net.ParseIP(fields[3])
 					if localIP != nil {
-						// 查找对应的网卡
+						// Find the corresponding interface
 						interfaces, _ := pcap.FindAllDevs()
 						for _, iface := range interfaces {
 							for _, addr := range iface.Addresses {
@@ -60,15 +60,15 @@ func GetDefaultRouteInterface() (*EtherTable, error) {
 		}
 
 	case "linux":
-		// Linux: 使用 ip route 获取默认路由
+		// Linux: use 'ip route' to get the default route
 		cmd := exec.Command("ip", "route", "show", "default")
 		output, err := cmd.Output()
 		if err != nil {
-			// 尝试使用 route 命令
+			// Try with the 'route' command
 			cmd = exec.Command("route", "-n")
 			output, err = cmd.Output()
 			if err != nil {
-				return nil, fmt.Errorf("获取路由信息失败: %v", err)
+				return nil, fmt.Errorf("failed to get routing information: %v", err)
 			}
 		}
 
@@ -77,12 +77,12 @@ func GetDefaultRouteInterface() (*EtherTable, error) {
 			if strings.Contains(line, "default") || strings.HasPrefix(line, "0.0.0.0") {
 				fields := strings.Fields(line)
 				if len(fields) >= 5 {
-					// ip route 格式: default via 192.168.1.1 dev eth0
+					// ip route format: default via 192.168.1.1 dev eth0
 					if fields[0] == "default" && len(fields) >= 5 {
 						gatewayIP = net.ParseIP(fields[2])
 						defaultInterface = fields[4]
 					} else if fields[0] == "0.0.0.0" {
-						// route -n 格式
+						// route -n format
 						gatewayIP = net.ParseIP(fields[1])
 						defaultInterface = fields[len(fields)-1]
 					}
@@ -92,11 +92,11 @@ func GetDefaultRouteInterface() (*EtherTable, error) {
 		}
 
 	case "darwin":
-		// macOS: 使用 route get 获取默认路由
+		// macOS: use 'route get default' to get the default route
 		cmd := exec.Command("route", "get", "default")
 		output, err := cmd.Output()
 		if err != nil {
-			return nil, fmt.Errorf("获取路由信息失败: %v", err)
+			return nil, fmt.Errorf("failed to get routing information: %v", err)
 		}
 
 		lines := strings.Split(string(output), "\n")
@@ -117,12 +117,12 @@ func GetDefaultRouteInterface() (*EtherTable, error) {
 	}
 
 	if defaultInterface == "" || gatewayIP == nil {
-		return nil, fmt.Errorf("无法获取默认路由信息")
+		return nil, fmt.Errorf("unable to obtain default route information")
 	}
 
-	gologger.Infof("找到默认路由网卡: %s, 网关: %s\n", defaultInterface, gatewayIP.String())
+	gologger.Infof("Found default route interface: %s, gateway: %s\n", defaultInterface, gatewayIP.String())
 
-	// 获取网卡的IP和MAC地址
+	// Get IP and MAC address of the interface
 	etherTable, err := getInterfaceDetails(defaultInterface, gatewayIP)
 	if err != nil {
 		return nil, err
@@ -131,21 +131,21 @@ func GetDefaultRouteInterface() (*EtherTable, error) {
 	return etherTable, nil
 }
 
-// getInterfaceDetails 获取网卡详细信息，包括通过ARP获取网关MAC
+// getInterfaceDetails retrieves detailed interface information, including the gateway MAC via ARP
 func getInterfaceDetails(deviceName string, gatewayIP net.IP) (*EtherTable, error) {
-	// 获取网卡信息
+	// Get interface information
 	interfaces, err := pcap.FindAllDevs()
 	if err != nil {
-		return nil, fmt.Errorf("获取网卡列表失败: %v", err)
+		return nil, fmt.Errorf("failed to get interface list: %v", err)
 	}
 
 	var srcIP net.IP
 	var srcMAC net.HardwareAddr
 
-	// 查找指定网卡的IP和MAC
+	// Find IP and MAC of the specified interface
 	for _, iface := range interfaces {
 		if iface.Name == deviceName {
-			// 获取IP地址
+			// Get IP address
 			for _, addr := range iface.Addresses {
 				if addr.IP.To4() != nil && !addr.IP.IsLoopback() {
 					srcIP = addr.IP
@@ -157,28 +157,28 @@ func getInterfaceDetails(deviceName string, gatewayIP net.IP) (*EtherTable, erro
 	}
 
 	if srcIP == nil {
-		return nil, fmt.Errorf("无法获取网卡 %s 的IP地址", deviceName)
+		return nil, fmt.Errorf("unable to get IP address for interface %s", deviceName)
 	}
 
-	// 获取网卡MAC地址
+	// Get interface MAC address
 	iface, err := net.InterfaceByName(deviceName)
 	if err == nil && iface.HardwareAddr != nil {
 		srcMAC = iface.HardwareAddr
 	} else {
-		// 如果标准方法失败，尝试从系统获取
+		// If standard method fails, try getting from system
 		srcMAC, _ = getMACAddress(deviceName)
 	}
 
 	if srcMAC == nil {
-		// 使用默认MAC
+		// Use default MAC
 		srcMAC = net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-		gologger.Warningf("无法获取网卡MAC地址，使用默认值\n")
+		gologger.Warningf("Unable to get interface MAC address, using default value\n")
 	}
 
-	// 通过ARP获取网关MAC地址
+	// Get gateway MAC address via ARP
 	gatewayMAC, err := resolveGatewayMAC(deviceName, srcIP, srcMAC, gatewayIP)
 	if err != nil {
-		gologger.Warningf("ARP解析网关MAC失败: %v，将使用广播地址\n", err)
+		gologger.Warningf("ARP resolution of gateway MAC failed: %v, will use broadcast address\n", err)
 		gatewayMAC = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	}
 
@@ -189,31 +189,31 @@ func getInterfaceDetails(deviceName string, gatewayIP net.IP) (*EtherTable, erro
 		DstMac: SelfMac(gatewayMAC),
 	}
 
-	gologger.Infof("网卡配置: IP=%s, MAC=%s, Gateway MAC=%s\n",
+	gologger.Infof("Interface config: IP=%s, MAC=%s, Gateway MAC=%s\n",
 		srcIP.String(), srcMAC.String(), gatewayMAC.String())
 
 	return etherTable, nil
 }
 
-// resolveGatewayMAC 通过ARP请求获取网关的MAC地址
+// resolveGatewayMAC resolves the gateway's MAC address via ARP request
 func resolveGatewayMAC(deviceName string, srcIP net.IP, srcMAC net.HardwareAddr, gatewayIP net.IP) (net.HardwareAddr, error) {
-	// 打开网卡进行ARP操作
+	// Open the interface for ARP operations
 	handle, err := pcap.OpenLive(deviceName, 2048, true, time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("打开网卡失败: %v", err)
+		return nil, fmt.Errorf("failed to open interface: %v", err)
 	}
 	defer handle.Close()
 
-	// 设置过滤器只接收ARP回复
+	// Set filter to receive only ARP replies
 	err = handle.SetBPFFilter(fmt.Sprintf("arp and arp[6:2] = 2 and src host %s", gatewayIP.String()))
 	if err != nil {
-		gologger.Debugf("设置BPF过滤器失败: %v\n", err)
+		gologger.Debugf("Failed to set BPF filter: %v\n", err)
 	}
 
-	// 构建ARP请求包
+	// Build ARP request packet
 	eth := &layers.Ethernet{
 		SrcMAC:       srcMAC,
-		DstMAC:       net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, // 广播
+		DstMAC:       net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, // broadcast
 		EthernetType: layers.EthernetTypeARP,
 	}
 
@@ -229,7 +229,7 @@ func resolveGatewayMAC(deviceName string, srcIP net.IP, srcMAC net.HardwareAddr,
 		DstProtAddress:    gatewayIP.To4(),
 	}
 
-	// 序列化数据包
+	// Serialize the packet
 	buffer := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{
 		FixLengths:       true,
@@ -238,17 +238,17 @@ func resolveGatewayMAC(deviceName string, srcIP net.IP, srcMAC net.HardwareAddr,
 
 	err = gopacket.SerializeLayers(buffer, opts, eth, arp)
 	if err != nil {
-		return nil, fmt.Errorf("构建ARP包失败: %v", err)
+		return nil, fmt.Errorf("failed to build ARP packet: %v", err)
 	}
 
-	// 发送ARP请求
+	// Send ARP request
 	outgoingPacket := buffer.Bytes()
 	err = handle.WritePacketData(outgoingPacket)
 	if err != nil {
-		return nil, fmt.Errorf("发送ARP请求失败: %v", err)
+		return nil, fmt.Errorf("failed to send ARP request: %v", err)
 	}
 
-	// 等待ARP回复
+	// Wait for ARP reply
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -256,17 +256,17 @@ func resolveGatewayMAC(deviceName string, srcIP net.IP, srcMAC net.HardwareAddr,
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("ARP响应超时")
+			return nil, fmt.Errorf("ARP response timed out")
 		case packet := <-packetSource.Packets():
 			if packet == nil {
 				continue
 			}
 
-			// 解析ARP层
+			// Parse ARP layer
 			if arpLayer := packet.Layer(layers.LayerTypeARP); arpLayer != nil {
 				arpReply, ok := arpLayer.(*layers.ARP)
 				if ok && arpReply.Operation == layers.ARPReply {
-					// 检查是否是我们请求的网关IP的回复
+					// Check if this is a reply for the gateway IP we requested
 					if net.IP(arpReply.SourceProtAddress).Equal(gatewayIP) {
 						return net.HardwareAddr(arpReply.SourceHwAddress), nil
 					}
@@ -276,23 +276,23 @@ func resolveGatewayMAC(deviceName string, srcIP net.IP, srcMAC net.HardwareAddr,
 	}
 }
 
-// getMACAddress 获取网卡MAC地址的辅助函数
+// getMACAddress is a helper function to get the MAC address of a network interface
 func getMACAddress(deviceName string) (net.HardwareAddr, error) {
-	// 尝试通过系统命令获取MAC地址
+	// Try to get MAC address via system command
 	switch runtime.GOOS {
 	case "windows":
-		// Windows: 使用 getmac 命令
+		// Windows: use 'getmac' command
 		cmd := exec.Command("getmac", "/v")
 		output, err := cmd.Output()
 		if err != nil {
 			return nil, err
 		}
-		// 解析输出找到对应网卡的MAC
-		// 这里需要更复杂的解析逻辑
+		// Parse output to find the MAC for the interface
+		// More complex parsing logic would be needed here
 		_ = output
 
 	case "linux", "darwin":
-		// Linux/macOS: 使用 ifconfig
+		// Linux/macOS: use ifconfig
 		cmd := exec.Command("ifconfig", deviceName)
 		output, err := cmd.Output()
 		if err != nil {
@@ -317,40 +317,40 @@ func getMACAddress(deviceName string) (net.HardwareAddr, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("无法获取MAC地址")
+	return nil, fmt.Errorf("unable to get MAC address")
 }
 
-// AutoGetDevicesImproved 改进的自动获取网卡方法
-// 优先使用路由表和ARP，失败时再回退到DNS探测
+// AutoGetDevicesImproved is an improved method for automatically detecting the network interface.
+// It prefers using the routing table and ARP, falling back to DNS probing on failure.
 func AutoGetDevicesImproved(userDNS []string) (*EtherTable, error) {
-	gologger.Infof("尝试通过默认路由获取网卡信息...\n")
+	gologger.Infof("Trying to get interface info via default route...\n")
 
-	// 方法1: 通过默认路由获取
+	// Method 1: Get via default route
 	etherTable, err := GetDefaultRouteInterface()
 	if err == nil {
-		// 验证网卡是否可用
+		// Validate the interface is usable
 		if validateInterface(etherTable) {
-			gologger.Infof("成功通过默认路由获取网卡信息\n")
+			gologger.Infof("Successfully obtained interface info via default route\n")
 			return etherTable, nil
 		}
 	}
 
-	gologger.Warningf("默认路由方法失败: %v，尝试DNS探测方法\n", err)
+	gologger.Warningf("Default route method failed: %v, falling back to DNS probing\n", err)
 
-	// 方法2: 回退到原始的DNS探测方法
+	// Method 2: Fall back to original DNS probing method
 	return AutoGetDevices(userDNS)
 }
 
-// validateInterface 验证网卡是否可用
+// validateInterface checks whether a network interface is usable
 func validateInterface(etherTable *EtherTable) bool {
-	// 尝试打开网卡
+	// Try to open the interface
 	handle, err := pcap.OpenLive(etherTable.Device, 1024, false, time.Second)
 	if err != nil {
 		return false
 	}
 	defer handle.Close()
 
-	// 检查是否能设置BPF过滤器
+	// Check if BPF filter can be set
 	err = handle.SetBPFFilter("udp")
 	return err == nil
 }

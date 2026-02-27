@@ -17,21 +17,21 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// 获取所有IPv4网卡信息
+// GetAllIPv4Devices returns all available IPv4 network interfaces
 func GetAllIPv4Devices() ([]string, map[string]net.IP) {
 	devices, err := pcap.FindAllDevs()
 	deviceNames := []string{}
 	deviceMap := make(map[string]net.IP)
 
 	if err != nil {
-		gologger.Fatalf("获取网络设备失败: %s\n", err.Error())
+		gologger.Fatalf("Failed to get network devices: %s\n", err.Error())
 		return deviceNames, deviceMap
 	}
 
 	for _, d := range devices {
 		for _, address := range d.Addresses {
 			ip := address.IP
-			// 只保留IPv4且非回环地址
+			// Keep only IPv4 non-loopback addresses
 			if ip.To4() != nil {
 				deviceMap[d.Name] = ip
 				deviceNames = append(deviceNames, d.Name)
@@ -54,95 +54,95 @@ func ValidDNS(dns string) bool {
 }
 
 func AutoGetDevices(userDNS []string) (*EtherTable, error) {
-	// 有效DNS列表
+	// Valid DNS list
 	var validDNS []string
 
-	// 1. 首先检测用户提供的DNS
+	// 1. First check user-provided DNS servers
 	if len(userDNS) > 0 {
 		for _, dns := range userDNS {
 
 			if ValidDNS(dns) {
 				validDNS = append(validDNS, dns)
 			} else {
-				gologger.Warningf("用户提供的DNS服务器无效: %s\n", dns)
+				gologger.Warningf("User-provided DNS server is invalid: %s\n", dns)
 			}
 		}
 	}
 
-	// 2. 如果用户DNS都无效，尝试系统DNS
+	// 2. If all user DNS are invalid, try system DNS
 	if len(validDNS) == 0 {
-		gologger.Infof("尝试获取系统DNS服务器...\n")
+		gologger.Infof("Trying to get system DNS servers...\n")
 		systemDNS, err := utils.GetSystemDefaultDNS()
 		if err == nil && len(systemDNS) > 0 {
 			for _, dns := range systemDNS {
 				if ValidDNS(dns) {
 					validDNS = append(validDNS, dns)
 				} else {
-					gologger.Debugf("系统DNS服务器无效: %s\n", dns)
+					gologger.Debugf("System DNS server is invalid: %s\n", dns)
 				}
 			}
 		} else {
-			gologger.Warningf("获取系统DNS失败: %v\n", err)
+			gologger.Warningf("Failed to get system DNS: %v\n", err)
 		}
 	}
 
 	if len(validDNS) == 0 {
-		return nil, fmt.Errorf("没有找到有效DNS，无法进行测试")
+		return nil, fmt.Errorf("no valid DNS found, cannot proceed with testing")
 	}
 
-	gologger.Infof("使用以下DNS服务器进行测试: %v\n", validDNS)
+	gologger.Infof("Using the following DNS servers for testing: %v\n", validDNS)
 	return AutoGetDevicesWithDNS(validDNS), nil
 }
 
-// AutoGetDevicesWithDNS 使用指定DNS自动获取外网发包网卡
-// 如果传入的DNS无效，则尝试使用系统DNS
+// AutoGetDevicesWithDNS automatically detects the external network interface using the specified DNS servers.
+// If the provided DNS servers are invalid, it falls back to the system DNS.
 func AutoGetDevicesWithDNS(validDNS []string) *EtherTable {
-	// 获取所有IPv4网卡
+	// Get all IPv4 interfaces
 	deviceNames, _ := GetAllIPv4Devices()
 	if len(deviceNames) == 0 {
-		gologger.Fatalf("未发现可用的IPv4网卡\n")
+		gologger.Fatalf("No available IPv4 network interfaces found\n")
 		return nil
 	}
 
-	// 创建随机域名用于测试
+	// Create a random domain name for testing
 	domain := core.RandomStr(6) + ".baidu.com"
 	signal := make(chan *EtherTable)
 
-	// 启动上下文，用于控制所有goroutine
+	// Start context to control all goroutines
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 测试所有网卡
+	// Test all interfaces
 	activeDeviceCount := 0
 	for _, deviceName := range deviceNames {
-		gologger.Infof("正在测试网卡 %s 的连通性...\n", deviceName)
+		gologger.Infof("Testing connectivity of interface %s...\n", deviceName)
 		go testDeviceConnectivity(ctx, deviceName, domain, signal)
 		activeDeviceCount++
 	}
-	// 等待测试结果或超时
+	// Wait for test results or timeout
 	return waitForDeviceTest(signal, domain, validDNS, 30)
 }
 
-// 测试网卡连通性
+// testDeviceConnectivity tests the connectivity of a network interface
 func testDeviceConnectivity(ctx context.Context, deviceName string, domain string, signal chan<- *EtherTable) {
 	var (
-		snapshot_len int32         = 2048                   // 增加抓包大小
-		promiscuous  bool          = true                   // 启用混杂模式
-		timeout      time.Duration = 500 * time.Millisecond // 增加超时时间
+		snapshot_len int32         = 2048                   // Increased capture size
+		promiscuous  bool          = true                   // Enable promiscuous mode
+		timeout      time.Duration = 500 * time.Millisecond // Increased timeout
 	)
 
 	handle, err := pcap.OpenLive(deviceName, snapshot_len, promiscuous, timeout)
 	if err != nil {
-		gologger.Debugf("无法打开网卡 %s: %s\n", deviceName, err.Error())
+		gologger.Debugf("Cannot open interface %s: %s\n", deviceName, err.Error())
 		return
 	}
 	defer handle.Close()
 
-	// 添加BPF过滤器，只捕获DNS响应包
+	// Add BPF filter to capture only DNS response packets
 	err = handle.SetBPFFilter("udp port 53")
 	if err != nil {
-		gologger.Debugf("设置过滤器失败 %s: %s\n", deviceName, err.Error())
-		// 继续尝试，不直接返回
+		gologger.Debugf("Failed to set filter on %s: %s\n", deviceName, err.Error())
+		// Continue trying without returning
 	}
 
 	for {
@@ -163,7 +163,7 @@ func testDeviceConnectivity(ctx context.Context, deviceName string, domain strin
 				if errors.Is(err, pcap.NextErrorTimeoutExpired) {
 					continue
 				}
-				continue // 不要立即返回，继续尝试
+				continue // Don't return immediately, keep trying
 			}
 
 			var decoded []gopacket.LayerType
@@ -172,7 +172,7 @@ func testDeviceConnectivity(ctx context.Context, deviceName string, domain strin
 				continue
 			}
 
-			// 检查是否解析到DNS层
+			// Check if the DNS layer was decoded
 			dnsFound := false
 			for _, layerType := range decoded {
 				if layerType == layers.LayerTypeDNS {
@@ -184,15 +184,15 @@ func testDeviceConnectivity(ctx context.Context, deviceName string, domain strin
 				continue
 			}
 
-			// 只处理DNS响应
+			// Process DNS responses only
 			if !dns.QR {
 				continue
 			}
 
-			// 检查是否匹配我们的测试域名
+			// Check if it matches our test domain
 			for _, q := range dns.Questions {
 				questionName := string(q.Name)
-				gologger.Debugf("收到DNS响应 %s，域名: %s\n", deviceName, questionName)
+				gologger.Debugf("Received DNS response on %s, domain: %s\n", deviceName, questionName)
 				if questionName == domain || questionName == domain+"." {
 					etherTable := EtherTable{
 						SrcIp:  ipv4.DstIP,
@@ -208,31 +208,31 @@ func testDeviceConnectivity(ctx context.Context, deviceName string, domain strin
 	}
 }
 
-// 等待设备测试结果
+// waitForDeviceTest waits for device test results
 func waitForDeviceTest(signal <-chan *EtherTable, domain string, dnsServers []string, timeout int) *EtherTable {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	count := 0
-	// 轮询使用DNS服务器列表
+	// Round-robin over DNS server list
 	dnsIndex := 0
 
 	for {
 		select {
 		case result := <-signal:
-			gologger.Infof("成功获取到外网网卡: %s\n", result.Device)
+			gologger.Infof("Successfully detected external interface: %s\n", result.Device)
 			return result
 		case <-ticker.C:
-			// 每秒尝试一次DNS查询，轮换使用不同的DNS服务器
+			// Try a DNS query every second, rotating through DNS servers
 			currentDNS := dnsServers[dnsIndex]
 			dnsIndex = (dnsIndex + 1) % len(dnsServers)
 
 			go func(server string) {
 				ip, err := LookUpIP(domain, server)
 				if err != nil {
-					gologger.Debugf("DNS查询失败(%s): %s\n", server, err.Error())
+					gologger.Debugf("DNS query failed (%s): %s\n", server, err.Error())
 				} else if ip != nil {
-					gologger.Debugf("DNS查询成功(%s): %s -> %s\n", server, domain, ip.String())
+					gologger.Debugf("DNS query succeeded (%s): %s -> %s\n", server, domain, ip.String())
 				}
 			}(currentDNS)
 
@@ -240,14 +240,14 @@ func waitForDeviceTest(signal <-chan *EtherTable, domain string, dnsServers []st
 			count++
 
 			if count >= timeout {
-				gologger.Fatalf("获取网络设备超时，请尝试手动指定网卡\n")
+				gologger.Fatalf("Timed out detecting network device, please specify the interface manually\n")
 				return nil
 			}
 		}
 	}
 }
 
-// LookUpIP 使用指定DNS服务器查询域名并返回IP地址
+// LookUpIP queries a domain name using the specified DNS server and returns the IP address
 func LookUpIP(fqdn, serverAddr string) (net.IP, error) {
 	var m dns.Msg
 	client := dns.Client{}
@@ -259,17 +259,17 @@ func LookUpIP(fqdn, serverAddr string) (net.IP, error) {
 		return nil, err
 	}
 
-	// 检查是否有响应
+	// Check for a response
 	if r == nil || len(r.Answer) == 0 {
-		return nil, fmt.Errorf("无DNS回复")
+		return nil, fmt.Errorf("no DNS reply")
 	}
 
-	// 尝试获取A记录
+	// Try to get an A record
 	for _, ans := range r.Answer {
 		if a, ok := ans.(*dns.A); ok {
 			return a.A, nil
 		}
 	}
 
-	return nil, fmt.Errorf("无A记录")
+	return nil, fmt.Errorf("no A record")
 }

@@ -5,13 +5,13 @@ import (
 	"github.com/boy-hack/ksubdomain/v2/pkg/device"
 )
 
-// GetDeviceConfig 获取网卡配置信息
-// 改进版本：优先通过路由表获取网卡信息，不依赖配置文件缓存
+// GetDeviceConfig retrieves network interface configuration.
+// Improved version: prioritizes getting interface info via routing table, no dependency on config file cache.
 func GetDeviceConfig(dnsServer []string) *device.EtherTable {
-	// 使用改进的自动识别方法，优先通过路由表获取，不依赖配置文件
+	// Use improved auto-detection method: routing table first, no config file dependency
 	ether, err := device.AutoGetDevicesImproved(dnsServer)
 	if err != nil {
-		gologger.Fatalf("自动识别外网网卡失败: %v\n", err)
+		gologger.Fatalf("Failed to auto-detect external network interface: %v\n", err)
 	}
 
 	device.PrintDeviceInfo(ether)

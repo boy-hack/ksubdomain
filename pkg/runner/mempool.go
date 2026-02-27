@@ -7,22 +7,22 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
-// MemoryPool 实现内存对象池
-// 优化点5: 对象池复用策略优化
-// 用途: 复用频繁分配的对象(DNS层、序列化缓冲区、切片)
-// 收益: 减少内存分配次数和GC压力,降低延迟
-// 关键: 归还前必须重置对象状态,避免数据污染
+// MemoryPool implements a memory object pool.
+// Optimization point 5: object pool reuse strategy optimization.
+// Purpose: reuse frequently allocated objects (DNS layers, serialize buffers, slices).
+// Benefit: reduces memory allocation frequency and GC pressure, lowers latency.
+// Key: objects must be reset before being returned to the pool to avoid data contamination.
 type MemoryPool struct {
-	dnsPool      sync.Pool // DNS查询/响应层对象池
-	bufPool      sync.Pool // gopacket序列化缓冲区池
-	questionPool sync.Pool // DNS问题切片池
-	answerPool   sync.Pool // DNS应答切片池
+	dnsPool      sync.Pool // DNS query/response layer object pool
+	bufPool      sync.Pool // gopacket serialize buffer pool
+	questionPool sync.Pool // DNS question slice pool
+	answerPool   sync.Pool // DNS answer slice pool
 }
 
-// 全局内存池实例
+// GlobalMemPool is the global memory pool instance
 var GlobalMemPool = NewMemoryPool()
 
-// NewMemoryPool 创建一个新的内存池
+// NewMemoryPool creates a new memory pool
 func NewMemoryPool() *MemoryPool {
 	return &MemoryPool{
 		dnsPool: sync.Pool{
@@ -51,26 +51,26 @@ func NewMemoryPool() *MemoryPool {
 	}
 }
 
-// GetDNS 获取一个DNS对象
-// 注意: 从池中获取的对象可能包含旧数据,必须重置所有字段
+// GetDNS retrieves a DNS object from the pool.
+// Note: objects obtained from the pool may contain stale data; all fields must be reset.
 func (p *MemoryPool) GetDNS() *layers.DNS {
 	dns := p.dnsPool.Get().(*layers.DNS)
-	// 重置切片长度(保留底层数组容量)
+	// Reset slice length (retain underlying array capacity)
 	dns.Questions = dns.Questions[:0]
 	dns.Answers = dns.Answers[:0]
-	// nil 掉不常用字段,避免内存泄漏
+	// Nil out infrequently used fields to avoid memory leaks
 	dns.Authorities = nil
 	dns.Additionals = nil
-	// 重置所有标志位为默认值
+	// Reset all flags to default values
 	dns.ID = 0
-	dns.QR = false      // 查询报文
-	dns.OpCode = 0      // 标准查询
-	dns.AA = false      // 非权威应答
-	dns.TC = false      // 未截断
-	dns.RD = true       // 期望递归
-	dns.RA = false      // 递归不可用
-	dns.Z = 0           // 保留位
-	dns.ResponseCode = 0 // 无错误
+	dns.QR = false      // Query message
+	dns.OpCode = 0      // Standard query
+	dns.AA = false      // Not authoritative
+	dns.TC = false      // Not truncated
+	dns.RD = true       // Recursion desired
+	dns.RA = false      // Recursion not available
+	dns.Z = 0           // Reserved bits
+	dns.ResponseCode = 0 // No error
 	dns.QDCount = 0
 	dns.ANCount = 0
 	dns.NSCount = 0
@@ -78,47 +78,47 @@ func (p *MemoryPool) GetDNS() *layers.DNS {
 	return dns
 }
 
-// PutDNS 回收一个DNS对象
+// PutDNS returns a DNS object to the pool
 func (p *MemoryPool) PutDNS(dns *layers.DNS) {
 	if dns != nil {
 		p.dnsPool.Put(dns)
 	}
 }
 
-// GetBuffer 获取一个序列化缓冲区
+// GetBuffer retrieves a serialize buffer from the pool
 func (p *MemoryPool) GetBuffer() gopacket.SerializeBuffer {
 	buf := p.bufPool.Get().(gopacket.SerializeBuffer)
 	buf.Clear()
 	return buf
 }
 
-// PutBuffer 回收一个序列化缓冲区
+// PutBuffer returns a serialize buffer to the pool
 func (p *MemoryPool) PutBuffer(buf gopacket.SerializeBuffer) {
 	if buf != nil {
 		p.bufPool.Put(buf)
 	}
 }
 
-// GetDNSQuestions 获取DNS问题切片
+// GetDNSQuestions retrieves a DNS question slice from the pool
 func (p *MemoryPool) GetDNSQuestions() []layers.DNSQuestion {
 	questions := p.questionPool.Get().([]layers.DNSQuestion)
 	return questions[:0]
 }
 
-// PutDNSQuestions 回收DNS问题切片
+// PutDNSQuestions returns a DNS question slice to the pool
 func (p *MemoryPool) PutDNSQuestions(questions []layers.DNSQuestion) {
 	if questions != nil {
 		p.questionPool.Put(questions)
 	}
 }
 
-// GetDNSAnswers 获取DNS应答切片
+// GetDNSAnswers retrieves a DNS answer slice from the pool
 func (p *MemoryPool) GetDNSAnswers() []layers.DNSResourceRecord {
 	answers := p.answerPool.Get().([]layers.DNSResourceRecord)
 	return answers[:0]
 }
 
-// PutDNSAnswers 回收DNS应答切片
+// PutDNSAnswers returns a DNS answer slice to the pool
 func (p *MemoryPool) PutDNSAnswers(answers []layers.DNSResourceRecord) {
 	if answers != nil {
 		p.answerPool.Put(answers)
