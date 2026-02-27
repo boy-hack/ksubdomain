@@ -9,9 +9,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/v2/pkg/utils"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
+	"github.com/boy-hack/ksubdomain/v2/internal/utils"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -105,7 +104,7 @@ func AutoGetDevicesWithDNS(validDNS []string) *EtherTable {
 	}
 
 	// Create a random domain name for testing
-	domain := core.RandomStr(6) + ".baidu.com"
+	domain := utils.RandomStr(6) + ".baidu.com"
 	signal := make(chan *EtherTable)
 
 	// Start context to control all goroutines

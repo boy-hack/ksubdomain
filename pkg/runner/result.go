@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/predict"
+	"github.com/boy-hack/ksubdomain/v2/internal/predict"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 

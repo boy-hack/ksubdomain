@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/v2/pkg/options"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
 	output2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter/output"

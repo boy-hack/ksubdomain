@@ -1,18 +1,18 @@
 package main
 
 import (
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/conf"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/internal/banner"
+	"github.com/boy-hack/ksubdomain/v2/pkg/version"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
 	"github.com/urfave/cli/v2"
 	"os"
 )
 
 func main() {
 	app := &cli.App{
-		Name:    conf.AppName,
-		Version: conf.Version,
-		Usage:   conf.Description,
+		Name:    version.AppName,
+		Version: version.Version,
+		Usage:   version.Description,
 		Commands: []*cli.Command{
 			enumCommand,
 			verifyCommand,
@@ -30,7 +30,7 @@ func main() {
 			if silent {
 				gologger.MaxLevel = gologger.Silent
 			}
-			core.ShowBanner(silent)
+			banner.ShowBanner(silent)
 			return nil
 		},
 	}

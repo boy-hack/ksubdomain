@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
 	"github.com/google/gopacket/pcap"
 	"gopkg.in/yaml.v3"
 )

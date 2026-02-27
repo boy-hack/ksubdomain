@@ -3,8 +3,8 @@ package output
 import (
 	"strings"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/internal/utils"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
 
@@ -17,7 +17,7 @@ type ScreenOutput struct {
 // NewScreenOutput creates a screen output handler.
 // Fix Issue #67: supports optional onlyDomain parameter.
 func NewScreenOutput(silent bool, onlyDomain ...bool) (*ScreenOutput, error) {
-	windowsWidth := core.GetWindowWith()
+	windowsWidth := utils.GetWindowWith()
 	s := new(ScreenOutput)
 	s.windowsWidth = windowsWidth
 	s.silent = silent

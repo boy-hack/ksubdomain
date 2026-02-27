@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/v2/internal/assets"
+	"github.com/boy-hack/ksubdomain/v2/pkg/options"
 	"github.com/boy-hack/ksubdomain/v2/pkg/device"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter/output"
@@ -85,7 +85,7 @@ func TestVerify(t *testing.T) {
 func TestEnum(t *testing.T) {
 	process := processbar2.ScreenProcess{}
 	screenPrinter, _ := output.NewScreenOutputNoWidth(false)
-	domains := core.GetDefaultSubdomainData()
+	domains := assets.GetDefaultSubdomainData()
 	domainChanel := make(chan string)
 	go func() {
 		for _, d := range domains {

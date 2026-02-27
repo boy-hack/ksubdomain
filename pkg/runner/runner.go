@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/v2/internal/utils"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/options"
 	"github.com/boy-hack/ksubdomain/v2/pkg/device"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/processbar"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
@@ -57,13 +57,13 @@ func New(opt *options.Options) (*Runner, error) {
 	r.statusDB = statusdb.CreateMemoryDB()
 
 	// Log DNS server information
-	gologger.Infof("Default DNS servers: %s\n", core.SliceToString(opt.Resolvers))
+	gologger.Infof("Default DNS servers: %s\n", utils.SliceToString(opt.Resolvers))
 	if len(opt.SpecialResolvers) > 0 {
 		var keys []string
 		for k := range opt.SpecialResolvers {
 			keys = append(keys, k)
 		}
-		gologger.Infof("Special DNS servers: %s\n", core.SliceToString(keys))
+		gologger.Infof("Special DNS servers: %s\n", utils.SliceToString(keys))
 	}
 
 	// Initialize network device

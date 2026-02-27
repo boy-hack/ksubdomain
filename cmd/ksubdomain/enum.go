@@ -6,10 +6,10 @@ import (
 	"math/rand"
 	"os"
 
-	core2 "github.com/boy-hack/ksubdomain/v2/pkg/core"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/ns"
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
+	"github.com/boy-hack/ksubdomain/v2/internal/assets"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/ns"
+	"github.com/boy-hack/ksubdomain/v2/pkg/options"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
 	output2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter/output"
@@ -95,7 +95,7 @@ var enumCommand = &cli.Command{
 			defer close(render)
 			filename := c.String("filename")
 			if filename == "" {
-				subdomainDict := core2.GetDefaultSubdomainData()
+				subdomainDict := assets.GetDefaultSubdomainData()
 				for _, domain := range domains {
 					for _, sub := range subdomainDict {
 						dd := sub + "." + domain

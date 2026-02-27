@@ -1,14 +1,14 @@
 package runner
 
 import (
-	"github.com/boy-hack/ksubdomain/v2/pkg/core"
+	"github.com/boy-hack/ksubdomain/v2/internal/utils"
 	"net"
 )
 
 func IsWildCard(domain string) (bool, []string) {
 	var ret []string
 	for i := 0; i < 4; i++ {
-		subdomain := core.RandomStr(6) + "." + domain
+		subdomain := utils.RandomStr(6) + "." + domain
 		ips, err := net.LookupIP(subdomain)
 		if err != nil {
 			continue

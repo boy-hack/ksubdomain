@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"

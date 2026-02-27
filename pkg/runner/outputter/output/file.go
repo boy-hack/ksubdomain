@@ -6,7 +6,7 @@ import (
 
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 
-	"github.com/boy-hack/ksubdomain/v2/pkg/utils"
+	"github.com/boy-hack/ksubdomain/v2/internal/utils"
 )
 
 type FileOutPut struct {

@@ -1,7 +1,7 @@
 package device
 
 import (
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/gologger"
 	"gopkg.in/yaml.v3"
 	"net"
 )
