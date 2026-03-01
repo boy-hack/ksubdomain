@@ -14,131 +14,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var commonFlags = []cli.Flag{
-	// Target domain(s)
-	&cli.StringSliceFlag{
-		Name:    "domain",
-		Aliases: []string{"d"},
-		Usage:   "Target domain(s) to scan",
-	},
-	
-	// Network bandwidth limit
-	// Internationalization: bandwidth (recommended) replaces band (kept for compatibility)
-	&cli.StringFlag{
-		Name:     "bandwidth",
-		Aliases:  []string{"band", "b"},
-		Usage:    "Network bandwidth limit (e.g., 5m=5Mbps, 10m=10Mbps, 100m=100Mbps) [Recommended: use --bandwidth]",
-		Required: false,
-		Value:    "3m",
-	},
-	
-	// DNS resolvers
-	&cli.StringSliceFlag{
-		Name:     "resolvers",
-		Aliases:  []string{"r"},
-		Usage:    "DNS resolver servers (e.g., 8.8.8.8, 1.1.1.1), uses built-in resolvers by default",
-		Required: false,
-	},
-	
-	// Output file
-	&cli.StringFlag{
-		Name:     "output",
-		Aliases:  []string{"o"},
-		Usage:    "Output file path",
-		Required: false,
-		Value:    "",
-	},
-	
-	// Output format
-	// Internationalization: format (recommended) replaces output-type (kept for compatibility)
-	&cli.StringFlag{
-		Name:     "format",
-		Aliases:  []string{"output-type", "oy", "f"},
-		Usage:    "Output format: txt (default), json, csv, jsonl [Recommended: use --format or -f]",
-		Required: false,
-		Value:    "txt",
-	},
-	
-	// Silent mode
-	&cli.BoolFlag{
-		Name:  "silent",
-		Usage: "Silent mode: only output domain names to screen",
-		Value: false,
-	},	
-	// Colorized output
-	&cli.BoolFlag{
-		Name:    "color",
-		Aliases: []string{"c"},
-		Usage:   "Enable colorized output (beautified mode)",
-		Value:   false,
-	},
-	
-	// Beautified output
-	&cli.BoolFlag{
-		Name:  "beautify",
-		Usage: "Enable beautified output with colors and summary statistics",
-		Value: false,
-	},
-	&cli.BoolFlag{
-		Name:    "only-domain",
-		Aliases: []string{"od"},
-		Usage:   "Only output domain names, do not display IP (Fix Issue #67)",
-		Value:   false,
-	},
-	&cli.IntFlag{
-		Name:  "retry",
-		Usage: "Retry count for failed queries (-1 for infinite retries)",
-		Value: 3,
-	},
-	
-	// Timeout
-	&cli.IntFlag{
-		Name:  "timeout",
-		Usage: "Timeout in seconds for each DNS query",
-		Value: 6,
-	},
-	
-	// Read from stdin
-	&cli.BoolFlag{
-		Name:  "stdin",
-		Usage: "Read domains from standard input (pipe)",
-		Value: false,
-	},
-	
-	// Suppress screen output
-	// Internationalization: quiet (recommended) replaces not-print (kept for compatibility)
-	&cli.BoolFlag{
-		Name:    "quiet",
-		Aliases: []string{"not-print", "np", "q", "no-output"},
-		Usage:   "Suppress screen output (save to file only) [Recommended: use --quiet or -q]",
-		Value:   false,
-	},
-	
-	// Network interface
-	// Internationalization: interface (recommended) replaces eth (kept for compatibility)
-	&cli.StringFlag{
-		Name:    "interface",
-		Aliases: []string{"eth", "e", "i"},
-		Usage:   "Network interface name (e.g., eth0, en0, wlan0) [Recommended: use --interface]",
-	},
-	
-	// Wildcard filter
-	// Internationalization: wildcard-filter (recommended) replaces wild-filter-mode
-	&cli.StringFlag{
-		Name:    "wildcard-filter",
-		Aliases: []string{"wild-filter-mode", "wf"},
-		Usage:   "Wildcard DNS filtering mode: none (default), basic, advanced [Recommended: use --wildcard-filter]",
-		Value:   "none",
-	},
-	
-	// Prediction mode
-	&cli.BoolFlag{
-		Name:     "predict",
-		Usage:    "Enable AI-powered subdomain prediction",
-		Required: false,
-	},
-}
-
 var verifyCommand = &cli.Command{
 	Name:    string(options.VerifyType),
 	Aliases: []string{"v"},
@@ -193,10 +68,10 @@ var verifyCommand = &cli.Command{
 		if c.Bool("quiet") {
 			processBar = nil
 		}
-		
+
 		var screenWriter outputter.Output
 		var err error
-		
+
 		// Beautified output mode
 		if c.Bool("beautify") || c.Bool("color") {
 			useColor := c.Bool("color") || c.Bool("beautify")
@@ -214,13 +89,13 @@ var verifyCommand = &cli.Command{
 		}
 		if c.String("output") != "" {
 			outputFile := c.String("output")
-			
+
 			// Support both old and new parameter names
 			outputType := c.String("format")
 			if outputType == "" || outputType == "txt" {
 				outputType = c.String("output-type")
 			}
-			
+
 			wildFilterMode := c.String("wildcard-filter")
 			if wildFilterMode == "" || wildFilterMode == "none" {
 				wildFilterMode = c.String("wild-filter-mode")
@@ -250,14 +125,14 @@ var verifyCommand = &cli.Command{
 			}
 		}
 		resolver := options.GetResolvers(c.StringSlice("resolvers"))
-		
+
 		// Support both old (band) and new (bandwidth) parameter names
 		bandwidthValue := c.String("bandwidth")
 		if bandwidthValue == "" || bandwidthValue == "3m" {
 			// Fallback to old parameter for compatibility
 			bandwidthValue = c.String("band")
 		}
-		
+
 		opt := &options.Options{
 			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
