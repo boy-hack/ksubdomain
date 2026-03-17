@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	kserrors "github.com/boy-hack/ksubdomain/v2/pkg/core/errors"
 	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
 	"github.com/google/gopacket/pcap"
 	"gopkg.in/yaml.v3"
@@ -144,7 +145,7 @@ func PcapInit(devicename string) (*pcap.Handle, error) {
 				)
 			}
 			gologger.Fatalf(solution)
-			return nil, fmt.Errorf("网卡未激活: %s", devicename)
+			return nil, fmt.Errorf("%w: %s", kserrors.ErrDeviceNotActive, devicename)
 		}
 		
 		// 情况2: 权限不足
@@ -156,7 +157,7 @@ func PcapInit(devicename string) (*pcap.Handle, error) {
 				devicename, os.Args[0],
 			)
 			gologger.Fatalf(solution)
-			return nil, fmt.Errorf("权限不足: %s", devicename)
+			return nil, fmt.Errorf("%w: %s", kserrors.ErrPermissionDenied, devicename)
 		}
 		
 		// 情况3: 网卡不存在
@@ -175,7 +176,7 @@ func PcapInit(devicename string) (*pcap.Handle, error) {
 				devicename,
 			)
 			gologger.Fatalf(solution)
-			return nil, fmt.Errorf("网卡不存在: %s", devicename)
+			return nil, fmt.Errorf("%w: %s", kserrors.ErrDeviceNotFound, devicename)
 		}
 		
 		// 其他错误

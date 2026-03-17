@@ -2,9 +2,9 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
+	kserrors "github.com/boy-hack/ksubdomain/v2/pkg/core/errors"
 	"github.com/boy-hack/ksubdomain/v2/pkg/core/predict"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
 )
@@ -47,7 +47,7 @@ func (r *Runner) handleResult(predictChan chan string) {
 // predict 根据已知域名预测新的子域名
 func (r *Runner) predict(res result.Result, predictChan chan string) error {
 	if r.domainChan == nil {
-		return fmt.Errorf("域名通道未初始化")
+		return kserrors.ErrDomainChanNil
 	}
 	_, err := predict.PredictDomains(res.Subdomain, predictChan)
 	if err != nil {

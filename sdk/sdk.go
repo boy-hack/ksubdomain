@@ -31,11 +31,21 @@ import (
 	"strings"
 	"sync"
 
+	kserrors "github.com/boy-hack/ksubdomain/v2/pkg/core/errors"
 	"github.com/boy-hack/ksubdomain/v2/pkg/core/options"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/outputter"
 	processbar2 "github.com/boy-hack/ksubdomain/v2/pkg/runner/processbar"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/result"
+)
+
+// Re-export sentinel errors so SDK users need only import this package.
+var (
+	ErrPermissionDenied = kserrors.ErrPermissionDenied
+	ErrDeviceNotFound   = kserrors.ErrDeviceNotFound
+	ErrDeviceNotActive  = kserrors.ErrDeviceNotActive
+	ErrPcapInit         = kserrors.ErrPcapInit
+	ErrDomainChanNil    = kserrors.ErrDomainChanNil
 )
 
 // Config holds scanner configuration.
