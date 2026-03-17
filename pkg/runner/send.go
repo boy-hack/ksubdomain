@@ -137,6 +137,12 @@ func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		}
 
+		// 背压控制：接收侧积压时主动降速，让 packetChan 有机会消化
+		// 使用短暂 sleep 而非 ratelimiter 修改，避免引入复杂的并发问题
+		if atomic.LoadInt32(&r.recvBackpressure) == 1 {
+			time.Sleep(5 * time.Millisecond)
+		}
+
 		// 批量发送所有域名
 		for i, domain := range batch {
 			send(domain, batchItems[i].Dns, r.options.EtherInfo, r.dnsID,

@@ -277,7 +277,11 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 	}
 
 	// 使用多个接收协程读取网络数据包
-	packetChan := make(chan []byte, 10000)
+	// 背压阈值：packetChan 占用超过 80% 时触发降速信号
+	const packetChanCap = 10000
+	const backpressureHighWatermark = int(packetChanCap * 0.8) // 8000：触发背压
+	const backpressureLowWatermark  = int(packetChanCap * 0.5) // 5000：恢复正常
+	packetChan := make(chan []byte, packetChanCap)
 
 	// 启动数据包接收协程
 	go func() {
@@ -288,6 +292,14 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 					continue
 				}
 				return
+			}
+
+			// 检测 packetChan 占用率，更新背压标志
+			qLen := len(packetChan)
+			if qLen >= backpressureHighWatermark {
+				atomic.StoreInt32(&r.recvBackpressure, 1)
+			} else if qLen <= backpressureLowWatermark {
+				atomic.StoreInt32(&r.recvBackpressure, 0)
 			}
 
 			select {

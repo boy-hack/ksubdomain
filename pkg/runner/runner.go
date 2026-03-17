@@ -24,24 +24,25 @@ import (
 
 // Runner 表示子域名扫描的运行时结构
 type Runner struct {
-	statusDB        *statusdb.StatusDb // 状态数据库
-	options         *options.Options   // 配置选项
-	rateLimiter     ratelimit.Limiter  // 速率限制器
-	pcapHandle      *pcap.Handle       // 网络抓包句柄
-	successCount    uint64             // 成功数量
-	sendCount       uint64             // 发送数量
-	receiveCount    uint64             // 接收数量
-	failedCount     uint64             // 失败数量
-	domainChan      chan string        // 域名发送通道
-	resultChan      chan result.Result // 结果接收通道
-	listenPort      int                // 监听端口
-	dnsID           uint16             // DNS请求ID
-	maxRetryCount   int                // 最大重试次数
-	initialLoadDone chan struct{}      // 初始加载完成信号
-	predictLoadDone chan struct{}      // predict加载完成信号
-	startTime       time.Time          // 开始时间
-	stopSignal      chan struct{}      // 停止信号
-	rttTracker      *rttSlidingWindow  // RTT滑动均值追踪器（始终启用）
+	statusDB           *statusdb.StatusDb // 状态数据库
+	options            *options.Options   // 配置选项
+	rateLimiter        ratelimit.Limiter  // 速率限制器
+	pcapHandle         *pcap.Handle       // 网络抓包句柄
+	successCount       uint64             // 成功数量
+	sendCount          uint64             // 发送数量
+	receiveCount       uint64             // 接收数量
+	failedCount        uint64             // 失败数量
+	domainChan         chan string        // 域名发送通道
+	resultChan         chan result.Result // 结果接收通道
+	listenPort         int                // 监听端口
+	dnsID              uint16             // DNS请求ID
+	maxRetryCount      int                // 最大重试次数
+	initialLoadDone    chan struct{}      // 初始加载完成信号
+	predictLoadDone    chan struct{}      // predict加载完成信号
+	startTime          time.Time          // 开始时间
+	stopSignal         chan struct{}      // 停止信号
+	rttTracker         *rttSlidingWindow  // RTT滑动均值追踪器（始终启用）
+	recvBackpressure   int32              // 接收侧背压标志：1=需要降速，0=正常（atomic）
 }
 
 // rttSlidingWindow 基于指数加权移动平均（EWMA）计算RTT滑动均值。

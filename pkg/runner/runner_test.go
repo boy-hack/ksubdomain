@@ -30,7 +30,6 @@ func TestV(t *testing.T) {
 			Domain:    domainChanel,
 			Resolvers: options.GetResolvers(nil),
 			Silent:    true,
-			TimeOut:   5,
 			Retry:     1,
 			Method:    options.VerifyType,
 			Writer: []outputter.Output{
@@ -65,7 +64,6 @@ func TestVerify(t *testing.T) {
 		Domain:    domainChanel,
 		Resolvers: options.GetResolvers(nil),
 		Silent:    false,
-		TimeOut:   5,
 		Retry:     1,
 		Method:    options.VerifyType,
 		Writer: []outputter.Output{
@@ -100,7 +98,6 @@ func TestEnum(t *testing.T) {
 		Domain:    domainChanel,
 		Resolvers: options.GetResolvers(nil),
 		Silent:    false,
-		TimeOut:   5,
 		Retry:     1,
 		Method:    options.EnumType,
 		Writer: []outputter.Output{
@@ -138,7 +135,6 @@ func TestPredict(t *testing.T) {
 		Domain:    domainChanel,
 		Resolvers: options.GetResolvers(nil),
 		Silent:    false,
-		TimeOut:   5,
 		Retry:     1,
 		Method:    options.VerifyType,
 		Writer: []outputter.Output{
