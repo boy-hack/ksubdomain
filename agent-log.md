@@ -34,3 +34,38 @@
       方案 A（当前）：默认 false，用户显式 `--dynamic-timeout` 启用（保守，推荐）
       方案 B：默认 true，`--no-dynamic-timeout` 可关闭（激进，影响现有脚本）
       请确认偏好后，Agent 可在一行内完成修改。
+
+---
+
+## [2026-03-17] feature/dynamic-timeout — 决策落地：动态超时始终启用 + 接收侧背压控制
+
+### 决策落地（同一分支追加）
+
+**变更**：
+- `Options` 移除 `TimeOut`、`DynamicTimeout` 字段
+- SDK `Config` 移除 `Timeout`、`DynamicTimeout` 字段
+- CLI 移除 `--timeout`、`--dynamic-timeout` 参数
+- 动态超时始终启用，上界内部硬编码 `rttMaxTimeoutSeconds=10s`
+- `runner_test.go` 清理已删除的 `TimeOut` 字段
+
+---
+
+## [2026-03-17] feature/dynamic-timeout — P0 接收侧背压控制
+
+**目标**：P0 接收侧背压控制
+
+**改动文件**：
+- `pkg/runner/runner.go` — Runner 新增 `recvBackpressure int32` 原子标志字段
+- `pkg/runner/recv.go` — 收包 goroutine 监控 `packetChan` 占用率：≥80%（8000）时 `StoreInt32(&r.recvBackpressure, 1)`，≤50%（5000）时清零
+- `pkg/runner/send.go` — `sendBatch` 执行前检查背压标志，若为 1 则 `sleep 5ms`，让 recv 管道有机会消化
+
+**设计说明**：
+- 高水位 80% / 低水位 50% 的双水位设计避免频繁抖动
+- sleep 5ms 相比修改 ratelimiter 更简单可靠，不引入并发状态机
+- 背压标志通过 `sync/atomic` 操作，无锁，对主路径性能影响极小
+
+**测试结果**：
+- 编译验证：当前环境无 Go 运行时，代码已人工审查
+- 逻辑审查：背压路径（recv 设置标志 → send 检查降速）正确；标志为原子操作，无竞态
+
+**结论**：P0 前两条已完成。下一步：P0 第三条批量重传合并。
