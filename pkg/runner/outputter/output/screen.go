@@ -45,10 +45,18 @@ func (s *ScreenOutput) WriteDomainResult(domain result.Result) error {
 	}
 	
 	if !s.silent {
+		// Pad to terminal width to overwrite any progress-bar remnants,
+		// but do NOT prefix with \r — that would corrupt piped output
+		// (e.g. `ksubdomain ... --od --silent | httpx`).
 		screenWidth := s.windowsWidth - len(msg) - 1
-		gologger.Silentf("\r%s% *s\n", msg, screenWidth, "")
+		if screenWidth < 0 {
+			screenWidth = 0
+		}
+		gologger.Silentf("%s% *s\n", msg, screenWidth, "")
 	} else {
-		gologger.Silentf("\r%s\n", msg)
+		// silent=true: plain domain-per-line, no control characters.
+		// This is the canonical pipe-friendly mode (--od --silent | httpx).
+		gologger.Silentf("%s\n", msg)
 	}
 	return nil
 }

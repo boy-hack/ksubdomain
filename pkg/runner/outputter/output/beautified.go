@@ -49,28 +49,7 @@ func (b *BeautifiedOutput) WriteDomainResult(r result.Result) error {
 
 	b.results = append(b.results, r)
 
-	// Determine record type
-	recordType := "A"
-	displayRecords := make([]string, 0, len(r.Answers))
-
-	for _, answer := range r.Answers {
-		if strings.HasPrefix(answer, "CNAME ") {
-			recordType = "CNAME"
-			displayRecords = append(displayRecords, answer[6:])
-		} else if strings.HasPrefix(answer, "NS ") {
-			recordType = "NS"
-			displayRecords = append(displayRecords, answer[3:])
-		} else if strings.HasPrefix(answer, "PTR ") {
-			recordType = "PTR"
-			displayRecords = append(displayRecords, answer[4:])
-		} else {
-			displayRecords = append(displayRecords, answer)
-		}
-	}
-
-	if len(displayRecords) == 0 {
-		displayRecords = r.Answers
-	}
+	recordType, displayRecords := parseAnswers(r.Answers)
 
 	// Count by type
 	b.typeCount[recordType]++
