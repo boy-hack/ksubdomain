@@ -248,12 +248,10 @@ func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
 					subdomain := string(dns.Questions[0].Name)
 
 					// 计算RTT并上报给动态超时追踪器
-					if r.options.DynamicTimeout && r.rttTracker != nil {
-						if item, ok := r.statusDB.Get(subdomain); ok {
-							rttSec := time.Since(item.Time).Seconds()
-							if rttSec > 0 {
-								r.rttTracker.recordSample(rttSec)
-							}
+					if item, ok := r.statusDB.Get(subdomain); ok {
+						rttSec := time.Since(item.Time).Seconds()
+						if rttSec > 0 {
+							r.rttTracker.recordSample(rttSec)
 						}
 					}
 

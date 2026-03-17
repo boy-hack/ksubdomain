@@ -37,12 +37,11 @@ type Runner struct {
 	listenPort      int                // 监听端口
 	dnsID           uint16             // DNS请求ID
 	maxRetryCount   int                // 最大重试次数
-	timeoutSeconds  int64              // 超时秒数（固定值，DynamicTimeout=false时使用）
 	initialLoadDone chan struct{}      // 初始加载完成信号
 	predictLoadDone chan struct{}      // predict加载完成信号
 	startTime       time.Time          // 开始时间
 	stopSignal      chan struct{}      // 停止信号
-	rttTracker      *rttSlidingWindow  // RTT滑动均值追踪器（DynamicTimeout=true时使用）
+	rttTracker      *rttSlidingWindow  // RTT滑动均值追踪器（始终启用）
 }
 
 // rttSlidingWindow 基于指数加权移动平均（EWMA）计算RTT滑动均值。
@@ -52,7 +51,7 @@ type Runner struct {
 //   - smoothedRTT = (1-alpha)*smoothedRTT + alpha*sample
 //   - rttVar      = (1-beta)*rttVar + beta*|sample-smoothedRTT|  (beta=0.25)
 //   - dynamicTimeout = smoothedRTT + 4*rttVar（TCP RTO 公式）
-//   - 上下界：[minTimeout=1s, maxTimeout=用户配置的 --timeout]
+//   - 上下界：[minTimeout=1s, maxTimeout=rttMaxTimeoutSeconds]
 //
 // 线程安全：所有字段通过 mu 保护。
 type rttSlidingWindow struct {
@@ -61,22 +60,24 @@ type rttSlidingWindow struct {
 	rttVar        float64 // RTT 方差（EWMA）
 	sampleCount   int64   // 已采样数量
 	minTimeout    float64 // 动态超时下界（秒）
-	maxTimeout    float64 // 动态超时上界 = 用户配置的 --timeout（秒）
+	maxTimeout    float64 // 动态超时上界（秒）
 }
 
 const (
-	rttAlpha = 0.125 // EWMA平滑系数（TCP RFC 6298）
-	rttBeta  = 0.25  // 方差平滑系数
+	rttAlpha              = 0.125 // EWMA平滑系数（TCP RFC 6298）
+	rttBeta               = 0.25  // 方差平滑系数
+	rttMaxTimeoutSeconds  = 10.0  // 动态超时上界（秒），内部固定，不对外暴露
+	rttMinTimeoutSeconds  = 1.0   // 动态超时下界（秒）
 )
 
-// newRTTSlidingWindow 创建RTT追踪器，maxTimeout 为用户配置的超时上界（秒）。
-func newRTTSlidingWindow(maxTimeout float64) *rttSlidingWindow {
+// newRTTSlidingWindow 创建RTT追踪器，上界固定为 rttMaxTimeoutSeconds。
+func newRTTSlidingWindow() *rttSlidingWindow {
 	return &rttSlidingWindow{
-		// 初始 smoothedRTT 设为 maxTimeout/2，避免冷启动时过早丢弃域名
-		smoothedRTT: maxTimeout / 2,
-		rttVar:      maxTimeout / 4,
-		minTimeout:  1.0,
-		maxTimeout:  maxTimeout,
+		// 初始 smoothedRTT 设为上界/2，避免冷启动时过早丢弃域名
+		smoothedRTT: rttMaxTimeoutSeconds / 2,
+		rttVar:      rttMaxTimeoutSeconds / 4,
+		minTimeout:  rttMinTimeoutSeconds,
+		maxTimeout:  rttMaxTimeoutSeconds,
 	}
 }
 
@@ -182,27 +183,20 @@ func New(opt *options.Options) (*Runner, error) {
 	// 设置其他参数
 	r.dnsID = 0x2021 // ksubdomain的生日
 	r.maxRetryCount = opt.Retry
-	r.timeoutSeconds = int64(opt.TimeOut)
 	r.initialLoadDone = make(chan struct{})
 	r.predictLoadDone = make(chan struct{})
 	r.startTime = time.Now()
 
-	// 初始化动态超时追踪器（仅在 DynamicTimeout 开启时）
-	if opt.DynamicTimeout {
-		r.rttTracker = newRTTSlidingWindow(float64(opt.TimeOut))
-		gologger.Infof("动态超时已开启，上界: %ds\n", opt.TimeOut)
-	}
+	// 始终启用动态超时，上界内部固定为 rttMaxTimeoutSeconds
+	r.rttTracker = newRTTSlidingWindow()
 
 	return r, nil
 }
 
 // effectiveTimeoutSeconds 返回当前有效的超时秒数。
-// 若 DynamicTimeout 已开启且有足够样本，返回动态计算值；否则返回固定配置值。
+// 有样本时使用 EWMA 动态计算值，冷启动（0 样本）时使用初始估算值。
 func (r *Runner) effectiveTimeoutSeconds() int64 {
-	if r.options.DynamicTimeout && r.rttTracker != nil && atomic.LoadInt64(&r.rttTracker.sampleCount) > 0 {
-		return r.rttTracker.dynamicTimeoutSeconds()
-	}
-	return r.timeoutSeconds
+	return r.rttTracker.dynamicTimeoutSeconds()
 }
 
 // selectDNSServer 根据域名智能选择DNS服务器

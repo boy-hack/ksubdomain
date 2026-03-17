@@ -22,7 +22,6 @@ type Options struct {
 	Domain             chan string        // 域名输入
 	Resolvers          []string           // dns resolvers
 	Silent             bool               // 安静模式
-	TimeOut            int                // 超时时间 单位(秒)
 	Retry              int                // 最大重试次数
 	Method             OptionMethod       // verify模式 enum模式 test模式
 	Writer             []outputter.Output // 输出结构
@@ -32,7 +31,6 @@ type Options struct {
 	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
 	WildIps            []string
 	Predict            bool // 是否开启预测模式
-	DynamicTimeout     bool // 是否开启动态超时自适应（基于RTT滑动均值）
 }
 
 func Band2Rate(bandWith string) int64 {

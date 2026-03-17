@@ -16,7 +16,7 @@ import (
 // 3. 根据DNS服务器分组批量重试
 func (r *Runner) retry(ctx context.Context) {
 	// 检测间隔: 使用200ms而不是完整超时时间,更及时发现超时
-	// 原实现每 timeoutSeconds 扫描一次,现在更频繁但有空扫描优化
+	// 检查间隔：200ms，比超时周期更频繁，配合动态超时自适应实现及时检测
 	t := time.NewTicker(200 * time.Millisecond)
 	defer t.Stop()
 

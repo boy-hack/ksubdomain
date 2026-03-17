@@ -211,7 +211,6 @@ var enumCommand = &cli.Command{
 			Domain:             render,
 			Resolvers:          defaultResolver,
 			Silent:             c.Bool("silent"),
-			TimeOut:            c.Int("timeout"),
 			Retry:              c.Int("retry"),
 			Method:             options.VerifyType,
 			Writer:             writer,
@@ -220,7 +219,6 @@ var enumCommand = &cli.Command{
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			WildIps:            wildIPS,
 			Predict:            c.Bool("predict"),
-			DynamicTimeout:     c.Bool("dynamic-timeout"),
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig(defaultResolver)

@@ -39,9 +39,6 @@ type Config struct {
 	// Retry count (-1 for infinite)
 	Retry int
 
-	// Timeout in seconds
-	Timeout int
-
 	// DNS resolvers (nil for default)
 	Resolvers []string
 
@@ -59,19 +56,12 @@ type Config struct {
 
 	// Silent mode (no progress bar)
 	Silent bool
-
-	// Enable dynamic timeout adaptation based on RTT sliding average.
-	// When true, the effective timeout shrinks/grows with observed RTT,
-	// reducing missed results in high-latency or variable-latency networks.
-	// The fixed Timeout value is used as the upper bound.
-	DynamicTimeout bool
 }
 
 // DefaultConfig returns default configuration
 var DefaultConfig = &Config{
 	Bandwidth:      "5m",
 	Retry:          3,
-	Timeout:        6,
 	Resolvers:      nil,
 	Device:         "",
 	Dictionary:     "",
@@ -104,9 +94,6 @@ func NewScanner(config *Config) *Scanner {
 	}
 	if config.Retry == 0 {
 		config.Retry = 3
-	}
-	if config.Timeout == 0 {
-		config.Timeout = 6
 	}
 
 	return &Scanner{
@@ -175,7 +162,6 @@ func (s *Scanner) scan(ctx context.Context, domainChan chan string, method strin
 		Domain:             domainChan,
 		Resolvers:          resolvers,
 		Silent:             s.config.Silent,
-		TimeOut:            s.config.Timeout,
 		Retry:              s.config.Retry,
 		Method:             method,
 		Writer:             []outputter.Output{collector},
@@ -183,7 +169,6 @@ func (s *Scanner) scan(ctx context.Context, domainChan chan string, method strin
 		EtherInfo:          options.GetDeviceConfig(resolvers),
 		WildcardFilterMode: s.config.WildcardFilter,
 		Predict:            s.config.Predict,
-		DynamicTimeout:     s.config.DynamicTimeout,
 	}
 
 	// Override device if specified

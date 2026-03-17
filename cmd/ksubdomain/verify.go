@@ -91,13 +91,6 @@ var commonFlags = []cli.Flag{
 		Value: 3,
 	},
 	
-	// Timeout
-	&cli.IntFlag{
-		Name:  "timeout",
-		Usage: "Timeout in seconds for each DNS query",
-		Value: 6,
-	},
-	
 	// Read from stdin
 	&cli.BoolFlag{
 		Name:  "stdin",
@@ -136,14 +129,6 @@ var commonFlags = []cli.Flag{
 		Name:     "predict",
 		Usage:    "Enable AI-powered subdomain prediction",
 		Required: false,
-	},
-
-	// Dynamic timeout: adapt timeout based on RTT sliding average
-	&cli.BoolFlag{
-		Name:    "dynamic-timeout",
-		Aliases: []string{"dt"},
-		Usage:   "Enable dynamic timeout adaptation based on RTT sliding average (reduces missed results in high-latency networks)",
-		Value:   false,
 	},
 }
 
@@ -271,7 +256,6 @@ var verifyCommand = &cli.Command{
 			Domain:             render,
 			Resolvers:          resolver,
 			Silent:             c.Bool("silent"),
-			TimeOut:            c.Int("timeout"),
 			Retry:              c.Int("retry"),
 			Method:             options.VerifyType,
 			Writer:             writer,
@@ -279,7 +263,6 @@ var verifyCommand = &cli.Command{
 			EtherInfo:          options.GetDeviceConfig(resolver),
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			Predict:            c.Bool("predict"),
-			DynamicTimeout:     c.Bool("dynamic-timeout"),
 		}
 		opt.Check()
 		ctx := context.Background()
