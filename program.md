@@ -108,7 +108,7 @@ sudo ./ksubdomain test
 
 - [x] **动态超时自适应**：RTT EWMA滑动均值，上界内部固定10s，始终启用
 - [x] **接收侧背压控制**：packetChan双水位监控（80%触发/50%恢复），send侧背压时sleep 5ms降速
-- [ ] **批量重传合并**：retry 循环目前逐条重发，改为按 DNS server 分组批量重发，降低系统调用次数
+- [x] **批量重传合并**：按DNS server分组批量send()，去掉channel中转层，复用slice/map减少GC
 
 ### P1 — 开发者集成
 
