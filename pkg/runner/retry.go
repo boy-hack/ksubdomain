@@ -2,83 +2,61 @@ package runner
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/statusdb"
+	"github.com/google/gopacket/layers"
 )
 
-// retry 优化的重试机制
-// 优化点4: 改进重试扫描效率
-// 1. 添加空扫描检测,避免无谓的CPU消耗
-// 2. 使用独立工作协程处理重试,不阻塞主流程
-// 3. 根据DNS服务器分组批量重试
+// retry 重试机制。
+//
+// 设计要点：
+//  1. 每 200ms 扫描一次 statusDB，比超时周期更频繁，配合动态超时自适应
+//  2. 空扫描优化：上次为空且队列仍为 0 时跳过，节省 CPU
+//  3. 批量重传合并：按 DNS server 分组，对同一 server 的多个域名连续调用
+//     send()，减少重复的 selectDNSServer + map lookup 开销
+//  4. 直接调用 send()：重传不再通过 domainChan 中转（避免两次 channel 传递），
+//     但仍更新 statusDB 中的 Retry/Time 字段保持状态一致
 func (r *Runner) retry(ctx context.Context) {
-	// 检测间隔: 使用200ms而不是完整超时时间,更及时发现超时
-	// 检查间隔：200ms，比超时周期更频繁，配合动态超时自适应实现及时检测
 	t := time.NewTicker(200 * time.Millisecond)
 	defer t.Stop()
 
-	// 用于批量发送的域名缓冲区
-	const batchSize = 100
-	retryDomains := make([]string, 0, batchSize)
+	const batchCap = 256
 
-	// 记录上次扫描时间，当数据库为空时可以更节约资源
-	lastScanEmpty := false
-
-	// 启动多个worker用于处理重试
-	workerCount := 4
-	retryDomainCh := make(chan string, batchSize*2)
-	var wg sync.WaitGroup
-	wg.Add(workerCount)
-
-	// 工作协程，用于发送重试请求
-	for i := 0; i < workerCount; i++ {
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case domain, ok := <-retryDomainCh:
-					if !ok {
-						return
-					}
-					// 重新发送
-					r.domainChan <- domain
-				}
-			}
-		}()
+	// dnsBatches: dns server -> []domain，按 server 分组收集需重传域名
+	// 复用 map 以减少 GC
+	type retryItem struct {
+		domain string
+		dns    string
 	}
+	items := make([]retryItem, 0, batchCap)
 
-	// 为域名分组的批处理域名缓冲
-	dnsBatches := make(map[string][]string)
+	// 按 DNS server 分组的 map，key=dnsServer, value=域名列表
+	dnsBatches := make(map[string][]string, 16)
+
+	lastScanEmpty := false
 
 	for {
 		select {
 		case <-ctx.Done():
-			close(retryDomainCh)
-			wg.Wait()
 			return
+
 		case <-t.C:
-			// 如果上次扫描为空且长度仍为0，可跳过
-			currentLength := r.statusDB.Length()
-			if lastScanEmpty && currentLength == 0 {
+			// 空扫描快速跳过
+			if lastScanEmpty && r.statusDB.Length() == 0 {
 				continue
 			}
 
-			// 当前时间
 			now := time.Now()
-			// 清空域名缓冲
-			retryDomains = retryDomains[:0]
-
-			// 清空分组缓冲
+			items = items[:0]
+			// 清空分组缓冲（复用已有 key 的 slice）
 			for k := range dnsBatches {
 				dnsBatches[k] = dnsBatches[k][:0]
 			}
 
-			// 收集需要重试的域名
+			// 扫描 statusDB，收集超时域名并分组
+			effectiveTimeout := r.effectiveTimeoutSeconds()
 			r.statusDB.Scan(func(key string, v statusdb.Item) error {
 				// 超过最大重试次数则放弃
 				if r.maxRetryCount > 0 && v.Retry > r.maxRetryCount {
@@ -87,36 +65,48 @@ func (r *Runner) retry(ctx context.Context) {
 					return nil
 				}
 
-				// 检查是否超时（使用动态或固定超时）
-				if int64(now.Sub(v.Time).Seconds()) >= r.effectiveTimeoutSeconds() {
-					// 将域名添加到重试列表，或者使用批量发送通道
-					retryDomains = append(retryDomains, key)
-
-					// 根据DNS服务器分组，以便批量发送
-					dns := r.selectDNSServer(key)
-					if _, ok := dnsBatches[dns]; !ok {
-						dnsBatches[dns] = make([]string, 0, batchSize)
-					}
-					dnsBatches[dns] = append(dnsBatches[dns], key)
+				// 检查是否超时
+				if int64(now.Sub(v.Time).Seconds()) < effectiveTimeout {
+					return nil
 				}
+
+				dns := r.selectDNSServer(key)
+				items = append(items, retryItem{domain: key, dns: dns})
+
+				if dnsBatches[dns] == nil {
+					dnsBatches[dns] = make([]string, 0, 32)
+				}
+				dnsBatches[dns] = append(dnsBatches[dns], key)
 				return nil
 			})
 
-			// 记录扫描状态
-			lastScanEmpty = len(retryDomains) == 0
+			lastScanEmpty = len(items) == 0
+			if lastScanEmpty {
+				continue
+			}
 
-			// 如果有需要重试的域名
-			if len(retryDomains) > 0 {
-				// 向工作协程发送重试域名
-				for _, domain := range retryDomains {
-					// 非阻塞发送
-					select {
-					case retryDomainCh <- domain:
-						// 发送成功
-					default:
-						// 通道满了，直接发送
-						r.domainChan <- domain
-					}
+			// 更新 statusDB：批量更新 Retry/Time，然后按 DNS server 分组批量发包
+			// 先更新状态，再发包，保证 statusDB 状态一致
+			for _, item := range items {
+				v, ok := r.statusDB.Get(item.domain)
+				if !ok {
+					continue // 可能已被 recv 侧删除，跳过
+				}
+				v.Retry += 1
+				v.Time = time.Now()
+				v.Dns = item.dns
+				r.statusDB.Set(item.domain, v)
+			}
+
+			// 按 DNS server 分组批量调用 send()
+			// 同一 server 的域名连续发送，减少 pcap handle 竞争和函数调用开销
+			for dns, domains := range dnsBatches {
+				if len(domains) == 0 {
+					continue
+				}
+				for _, domain := range domains {
+					send(domain, dns, r.options.EtherInfo, r.dnsID,
+						uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
 				}
 			}
 		}
