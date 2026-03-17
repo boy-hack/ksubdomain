@@ -65,6 +65,13 @@ type Config struct {
 
 	// Silent disables the progress bar
 	Silent bool
+
+	// ExtraWriters allows callers to inject custom output sinks.
+	// Each writer's WriteDomainResult is called for every resolved result,
+	// in addition to the SDK's internal collection/stream logic.
+	// Writers must implement outputter.Output (WriteDomainResult + Close).
+	// Close() on each writer is called after the scan completes.
+	ExtraWriters []outputter.Output
 }
 
 // DefaultConfig is a ready-to-use Config with sensible defaults.
@@ -197,8 +204,15 @@ func (s *Scanner) buildDictChan(domain string) (chan string, error) {
 }
 
 // buildOptions constructs runner.Options from the scanner config.
-func (s *Scanner) buildOptions(domainChan chan string, method string, writer outputter.Output) *options.Options {
+// primaryWriter is the SDK-internal writer (resultCollector or streamCollector).
+// Any ExtraWriters from config are appended after it.
+func (s *Scanner) buildOptions(domainChan chan string, method string, primaryWriter outputter.Output) *options.Options {
 	resolvers := options.GetResolvers(s.config.Resolvers)
+
+	writers := make([]outputter.Output, 0, 1+len(s.config.ExtraWriters))
+	writers = append(writers, primaryWriter)
+	writers = append(writers, s.config.ExtraWriters...)
+
 	opt := &options.Options{
 		Rate:               options.Band2Rate(s.config.Bandwidth),
 		Domain:             domainChan,
@@ -206,7 +220,7 @@ func (s *Scanner) buildOptions(domainChan chan string, method string, writer out
 		Silent:             s.config.Silent,
 		Retry:              s.config.Retry,
 		Method:             method,
-		Writer:             []outputter.Output{writer},
+		Writer:             writers,
 		ProcessBar:         &processbar2.FakeProcess{},
 		EtherInfo:          options.GetDeviceConfig(resolvers),
 		WildcardFilterMode: s.config.WildcardFilter,
