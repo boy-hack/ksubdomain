@@ -280,3 +280,9 @@ func (r *Runner) Close() {
 		r.options.ProcessBar.Close()
 	}
 }
+
+// SuccessCount returns the number of domains that resolved successfully.
+// Call this after Close() to determine whether to use a non-zero exit code.
+func (r *Runner) SuccessCount() uint64 {
+	return atomic.LoadUint64(&r.successCount)
+}

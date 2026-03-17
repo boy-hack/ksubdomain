@@ -231,6 +231,10 @@ var enumCommand = &cli.Command{
 		}
 		r.RunEnumeration(ctx)
 		r.Close()
+		// Exit 1 when nothing resolved — lets shell pipelines use && correctly.
+		if r.SuccessCount() == 0 {
+			os.Exit(1)
+		}
 		return nil
 	},
 }
