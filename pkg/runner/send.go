@@ -115,8 +115,26 @@ func (r *Runner) sendCycle() {
 	}
 }
 
-// sendCycleWithContext 实现带有context管理的发送域名请求循环
-// 优化: 添加批量发送机制,减少系统调用次数
+// sendCycleWithContext implements the main send loop.
+//
+// Architecture overview:
+//
+//	domainChan ──► rateLimiter.Take() ──► statusDB.Add/Set ──► send()
+//	                                                               │
+//	                                                      pcap.WritePacketData
+//
+// Domains arrive on domainChan from two sources:
+//  1. loadDomainsFromSource — the initial wordlist / input feed
+//  2. retry() — re-injected timed-out domains
+//
+// Batching (batchSize=100, flush every 10 ms):
+//   Collecting N domains before calling send() amortises the per-call
+//   gopacket serialisation overhead and reduces CPU instruction-cache
+//   misses.  The 10 ms ticker ensures low-volume scans are not delayed.
+//
+// Backpressure: sendBatch checks the recvBackpressure flag set by
+//   recv.go when packetChan is ≥80% full, and sleeps 5 ms to let the
+//   receive pipeline drain.  This prevents packet loss under high load.
 func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 

@@ -211,6 +211,27 @@ func (r *Runner) processPredictedDomains(ctx context.Context, wg *sync.WaitGroup
 }
 
 // RunEnumeration 开始子域名枚举过程
+// RunEnumeration runs the full scan pipeline until all domains have been
+// sent, retried, and their results collected (or the context is cancelled).
+//
+// Goroutine topology (all started here):
+//
+//	loadDomainsFromSource ──► domainChan ──► sendCycleWithContext ──► pcap
+//	                                                  │
+//	                                             statusDB (sharded 64-bucket)
+//	                                                  │
+//	                              retry() (200 ms tick) ──► re-inject timed-out
+//	                                                  │
+//	                          recvChanel ──► packetChan ──► dnsChanel
+//	                                                             │
+//	                                              handleResultWithContext
+//	                                                             │
+//	                                                       resultChan
+//	                                                             │
+//	                                                     outputter.Output
+//
+// Completion is detected by monitorProgress: the scan is done when
+// statusDB is empty AND domainChan is drained AND initialLoadDone is set.
 func (r *Runner) RunEnumeration(ctx context.Context) {
 	// 创建可取消的上下文
 	ctx, cancelFunc := context.WithCancel(ctx)
