@@ -87,8 +87,8 @@ func (r *Runner) retry(ctx context.Context) {
 					return nil
 				}
 
-				// 检查是否超时
-				if int64(now.Sub(v.Time).Seconds()) >= r.timeoutSeconds {
+				// 检查是否超时（使用动态或固定超时）
+				if int64(now.Sub(v.Time).Seconds()) >= r.effectiveTimeoutSeconds() {
 					// 将域名添加到重试列表，或者使用批量发送通道
 					retryDomains = append(retryDomains, key)
 

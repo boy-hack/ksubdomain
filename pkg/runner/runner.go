@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/boy-hack/ksubdomain/v2/pkg/core"
@@ -36,11 +37,89 @@ type Runner struct {
 	listenPort      int                // 监听端口
 	dnsID           uint16             // DNS请求ID
 	maxRetryCount   int                // 最大重试次数
-	timeoutSeconds  int64              // 超时秒数
+	timeoutSeconds  int64              // 超时秒数（固定值，DynamicTimeout=false时使用）
 	initialLoadDone chan struct{}      // 初始加载完成信号
 	predictLoadDone chan struct{}      // predict加载完成信号
 	startTime       time.Time          // 开始时间
 	stopSignal      chan struct{}      // 停止信号
+	rttTracker      *rttSlidingWindow  // RTT滑动均值追踪器（DynamicTimeout=true时使用）
+}
+
+// rttSlidingWindow 基于指数加权移动平均（EWMA）计算RTT滑动均值。
+//
+// 算法说明：
+//   - 使用 alpha=0.125（即 1/8），与 TCP RFC 6298 保持一致
+//   - smoothedRTT = (1-alpha)*smoothedRTT + alpha*sample
+//   - rttVar      = (1-beta)*rttVar + beta*|sample-smoothedRTT|  (beta=0.25)
+//   - dynamicTimeout = smoothedRTT + 4*rttVar（TCP RTO 公式）
+//   - 上下界：[minTimeout=1s, maxTimeout=用户配置的 --timeout]
+//
+// 线程安全：所有字段通过 mu 保护。
+type rttSlidingWindow struct {
+	mu            sync.Mutex
+	smoothedRTT   float64 // 单位：秒（EWMA）
+	rttVar        float64 // RTT 方差（EWMA）
+	sampleCount   int64   // 已采样数量
+	minTimeout    float64 // 动态超时下界（秒）
+	maxTimeout    float64 // 动态超时上界 = 用户配置的 --timeout（秒）
+}
+
+const (
+	rttAlpha = 0.125 // EWMA平滑系数（TCP RFC 6298）
+	rttBeta  = 0.25  // 方差平滑系数
+)
+
+// newRTTSlidingWindow 创建RTT追踪器，maxTimeout 为用户配置的超时上界（秒）。
+func newRTTSlidingWindow(maxTimeout float64) *rttSlidingWindow {
+	return &rttSlidingWindow{
+		// 初始 smoothedRTT 设为 maxTimeout/2，避免冷启动时过早丢弃域名
+		smoothedRTT: maxTimeout / 2,
+		rttVar:      maxTimeout / 4,
+		minTimeout:  1.0,
+		maxTimeout:  maxTimeout,
+	}
+}
+
+// recordSample 记录一次RTT样本（单位：秒）。
+func (w *rttSlidingWindow) recordSample(rttSec float64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.sampleCount == 0 {
+		// 第一个样本：直接初始化
+		w.smoothedRTT = rttSec
+		w.rttVar = rttSec / 2
+	} else {
+		// RFC 6298 更新公式
+		diff := rttSec - w.smoothedRTT
+		if diff < 0 {
+			diff = -diff
+		}
+		w.rttVar = (1-rttBeta)*w.rttVar + rttBeta*diff
+		w.smoothedRTT = (1-rttAlpha)*w.smoothedRTT + rttAlpha*rttSec
+	}
+	atomic.AddInt64(&w.sampleCount, 1)
+}
+
+// dynamicTimeoutSeconds 返回当前动态超时（秒，整数，向上取整）。
+// 公式：smoothedRTT + 4*rttVar，限制在 [minTimeout, maxTimeout] 范围内。
+func (w *rttSlidingWindow) dynamicTimeoutSeconds() int64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	timeout := w.smoothedRTT + 4*w.rttVar
+	if timeout < w.minTimeout {
+		timeout = w.minTimeout
+	}
+	if timeout > w.maxTimeout {
+		timeout = w.maxTimeout
+	}
+	// 向上取整，最少 1 秒
+	result := int64(math.Ceil(timeout))
+	if result < 1 {
+		result = 1
+	}
+	return result
 }
 
 func init() {
@@ -107,7 +186,23 @@ func New(opt *options.Options) (*Runner, error) {
 	r.initialLoadDone = make(chan struct{})
 	r.predictLoadDone = make(chan struct{})
 	r.startTime = time.Now()
+
+	// 初始化动态超时追踪器（仅在 DynamicTimeout 开启时）
+	if opt.DynamicTimeout {
+		r.rttTracker = newRTTSlidingWindow(float64(opt.TimeOut))
+		gologger.Infof("动态超时已开启，上界: %ds\n", opt.TimeOut)
+	}
+
 	return r, nil
+}
+
+// effectiveTimeoutSeconds 返回当前有效的超时秒数。
+// 若 DynamicTimeout 已开启且有足够样本，返回动态计算值；否则返回固定配置值。
+func (r *Runner) effectiveTimeoutSeconds() int64 {
+	if r.options.DynamicTimeout && r.rttTracker != nil && atomic.LoadInt64(&r.rttTracker.sampleCount) > 0 {
+		return r.rttTracker.dynamicTimeoutSeconds()
+	}
+	return r.timeoutSeconds
 }
 
 // selectDNSServer 根据域名智能选择DNS服务器

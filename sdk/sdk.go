@@ -59,6 +59,12 @@ type Config struct {
 
 	// Silent mode (no progress bar)
 	Silent bool
+
+	// Enable dynamic timeout adaptation based on RTT sliding average.
+	// When true, the effective timeout shrinks/grows with observed RTT,
+	// reducing missed results in high-latency or variable-latency networks.
+	// The fixed Timeout value is used as the upper bound.
+	DynamicTimeout bool
 }
 
 // DefaultConfig returns default configuration
@@ -177,6 +183,7 @@ func (s *Scanner) scan(ctx context.Context, domainChan chan string, method strin
 		EtherInfo:          options.GetDeviceConfig(resolvers),
 		WildcardFilterMode: s.config.WildcardFilter,
 		Predict:            s.config.Predict,
+		DynamicTimeout:     s.config.DynamicTimeout,
 	}
 
 	// Override device if specified

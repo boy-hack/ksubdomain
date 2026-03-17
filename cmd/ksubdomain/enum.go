@@ -220,6 +220,7 @@ var enumCommand = &cli.Command{
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			WildIps:            wildIPS,
 			Predict:            c.Bool("predict"),
+			DynamicTimeout:     c.Bool("dynamic-timeout"),
 		}
 		opt.Check()
 		opt.EtherInfo = options.GetDeviceConfig(defaultResolver)

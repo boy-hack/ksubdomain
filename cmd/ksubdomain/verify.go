@@ -137,6 +137,14 @@ var commonFlags = []cli.Flag{
 		Usage:    "Enable AI-powered subdomain prediction",
 		Required: false,
 	},
+
+	// Dynamic timeout: adapt timeout based on RTT sliding average
+	&cli.BoolFlag{
+		Name:    "dynamic-timeout",
+		Aliases: []string{"dt"},
+		Usage:   "Enable dynamic timeout adaptation based on RTT sliding average (reduces missed results in high-latency networks)",
+		Value:   false,
+	},
 }
 
 var verifyCommand = &cli.Command{
@@ -271,6 +279,7 @@ var verifyCommand = &cli.Command{
 			EtherInfo:          options.GetDeviceConfig(resolver),
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			Predict:            c.Bool("predict"),
+			DynamicTimeout:     c.Bool("dynamic-timeout"),
 		}
 		opt.Check()
 		ctx := context.Background()

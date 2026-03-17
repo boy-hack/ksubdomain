@@ -32,6 +32,7 @@ type Options struct {
 	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
 	WildIps            []string
 	Predict            bool // 是否开启预测模式
+	DynamicTimeout     bool // 是否开启动态超时自适应（基于RTT滑动均值）
 }
 
 func Band2Rate(bandWith string) int64 {
