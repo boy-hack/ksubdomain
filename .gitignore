@@ -3,4 +3,5 @@ go.sum
 test2
 ksubdomain.yaml
 dist/
-ksubdomain
+ksubdomainsimple
+advanced
