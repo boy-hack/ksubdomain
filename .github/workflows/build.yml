@@ -30,7 +30,7 @@ jobs:
 
       - name: Build On Linux
         run: |
-          go build -ldflags "-X github.com/boy-hack/ksubdomain/v2/pkg/core/conf.Version=${{ steps.get_version.outputs.VERSION }}" -o ./ksubdomain ./cmd/ksubdomain/
+          go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip ksubdomain
         env:
@@ -39,7 +39,7 @@ jobs:
           
       - name: Build On Windows
         run: |
-          go build -ldflags "-X github.com/boy-hack/ksubdomain/v2/pkg/core/conf.Version=${{ steps.get_version.outputs.VERSION }}" -o ./ksubdomain.exe ./cmd/ksubdomain/
+          go build -o ./ksubdomain.exe ./cmd/ksubdomain/
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip ksubdomain.exe
         env:
           GOOS: windows
@@ -82,7 +82,7 @@ jobs:
         
       - name: Build On Darwin amd64
         run: |
-          go build -ldflags "-X github.com/boy-hack/ksubdomain/v2/pkg/core/conf.Version=${{ steps.get_version.outputs.VERSION }}" -o ./ksubdomain ./cmd/ksubdomain/
+          go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.zip ksubdomain
         env:
@@ -124,7 +124,7 @@ jobs:
         
       - name: Build On Darwin arm64
         run: |
-          go build -ldflags "-X github.com/boy-hack/ksubdomain/v2/pkg/core/conf.Version=${{ steps.get_version.outputs.VERSION }}" -o ./ksubdomain ./cmd/ksubdomain/
+          go build -o ./ksubdomain ./cmd/ksubdomain/
           chmod +x ksubdomain
           zip KSubdomain-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.zip ksubdomain
         env:
