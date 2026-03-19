@@ -180,47 +180,49 @@ func (r *Runner) processPacket(data []byte, dnsChanel chan<- layers.DNS) {
 	}
 }
 
-// recvChanel 实现接收DNS响应的功能
-func (r *Runner) recvChanel(ctx context.Context, wg *sync.WaitGroup) {
+// recvChanelForIface 为单张网卡实现接收DNS响应的功能。
+// 每张网卡独立开一个 InactiveHandle，BPF filter 使用该网卡自己的 listenPort，
+// 保证不同网卡的响应互不干扰。
+func (r *Runner) recvChanelForIface(ctx context.Context, wg *sync.WaitGroup, iface *netInterface) {
 	defer wg.Done()
 	var (
 		snapshotLen = 65536
 		timeout     = 5 * time.Second
 		err         error
 	)
-	inactive, err := pcap.NewInactiveHandle(r.options.EtherInfo.Device)
+	inactive, err := pcap.NewInactiveHandle(iface.etherInfo.Device)
 	if err != nil {
-		gologger.Errorf("创建网络捕获句柄失败: %v", err)
+		gologger.Errorf("创建网络捕获句柄失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 	err = inactive.SetSnapLen(snapshotLen)
 	if err != nil {
-		gologger.Errorf("设置抓包长度失败: %v", err)
+		gologger.Errorf("设置抓包长度失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 	defer inactive.CleanUp()
 
 	if err = inactive.SetTimeout(timeout); err != nil {
-		gologger.Errorf("设置超时失败: %v", err)
+		gologger.Errorf("设置超时失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 
 	err = inactive.SetImmediateMode(true)
 	if err != nil {
-		gologger.Errorf("设置即时模式失败: %v", err)
+		gologger.Errorf("设置即时模式失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 
 	handle, err := inactive.Activate()
 	if err != nil {
-		gologger.Errorf("激活网络捕获失败: %v", err)
+		gologger.Errorf("激活网络捕获失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 	defer handle.Close()
 
-	err = handle.SetBPFFilter(fmt.Sprintf("udp and src port 53 and dst port %d", r.listenPort))
+	err = handle.SetBPFFilter(fmt.Sprintf("udp and src port 53 and dst port %d", iface.listenPort))
 	if err != nil {
-		gologger.Errorf("设置BPF过滤器失败: %v", err)
+		gologger.Errorf("设置BPF过滤器失败 [%s]: %v", iface.etherInfo.Device, err)
 		return
 	}
 

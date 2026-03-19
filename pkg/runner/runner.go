@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/boy-hack/ksubdomain/v2/pkg/core"
@@ -21,19 +22,26 @@ import (
 	"go.uber.org/ratelimit"
 )
 
+// netInterface 单张网卡的完整上下文
+type netInterface struct {
+	etherInfo     *device.EtherTable
+	pcapHandle    *pcap.Handle
+	listenPort    int
+	templateCache sync.Map
+}
+
 // Runner 表示子域名扫描的运行时结构
 type Runner struct {
 	statusDB        *statusdb.StatusDb // 状态数据库
 	options         *options.Options   // 配置选项
 	rateLimiter     ratelimit.Limiter  // 速率限制器
-	pcapHandle      *pcap.Handle       // 网络抓包句柄
+	ifaces          []*netInterface    // 每张网卡的上下文（替代原 pcapHandle/listenPort）
 	successCount    uint64             // 成功数量
 	sendCount       uint64             // 发送数量
 	receiveCount    uint64             // 接收数量
 	failedCount     uint64             // 失败数量
 	domainChan      chan string        // 域名发送通道
 	resultChan      chan result.Result // 结果接收通道
-	listenPort      int                // 监听端口
 	dnsID           uint16             // DNS请求ID
 	maxRetryCount   int                // 最大重试次数
 	timeoutSeconds  int64              // 超时秒数
@@ -49,7 +57,6 @@ func init() {
 
 // New 创建一个新的Runner实例
 func New(opt *options.Options) (*Runner, error) {
-	var err error
 	version := pcap.Version()
 	r := new(Runner)
 	gologger.Infof(version)
@@ -66,24 +73,42 @@ func New(opt *options.Options) (*Runner, error) {
 		gologger.Infof("特殊DNS服务器: %s\n", core.SliceToString(keys))
 	}
 
-	// 初始化网络设备
-	r.pcapHandle, err = device.PcapInit(opt.EtherInfo.Device)
-	if err != nil {
-		return nil, err
+	// 初始化每张网卡的上下文
+	allEthers := opt.AllEtherInfos()
+	if len(allEthers) == 0 {
+		gologger.Fatalf("没有可用网卡配置\n")
 	}
 
-	// 设置速率限制
+	r.ifaces = make([]*netInterface, 0, len(allEthers))
+	for _, ether := range allEthers {
+		handle, err := device.PcapInit(ether.Device)
+		if err != nil {
+			return nil, err
+		}
+		freePort, err := freeport.GetFreePort()
+		if err != nil {
+			handle.Close()
+			return nil, err
+		}
+		gologger.Infof("网卡 %s 监听端口: %d\n", ether.Device, freePort)
+		r.ifaces = append(r.ifaces, &netInterface{
+			etherInfo:  ether,
+			pcapHandle: handle,
+			listenPort: freePort,
+		})
+	}
+
+	// 设置速率限制（多卡时速率平均分配给各卡，这里保持总速率不变）
 	cpuLimit := float64(runtime.NumCPU() * 10000)
 	rateLimit := int(math.Min(cpuLimit, float64(opt.Rate)))
-	
-	// Mac 平台优化: BPF 缓冲区限制较严格
-	// 建议速率 < 50000 pps 以避免缓冲区溢出
+
+	// Mac 平台优化
 	if runtime.GOOS == "darwin" && rateLimit > 50000 {
 		gologger.Warningf("Mac 平台检测到: 当前速率 %d pps 可能导致缓冲区问题\n", rateLimit)
 		gologger.Warningf("建议: 使用 -b 参数限制带宽 (如 -b 5m) 或降低速率\n")
 		gologger.Warningf("提示: Mac BPF 缓冲区已优化至 2MB,但仍建议速率 < 50000 pps\n")
 	}
-	
+
 	r.rateLimiter = ratelimit.New(rateLimit)
 	gologger.Infof("速率限制: %d pps\n", rateLimit)
 
@@ -91,14 +116,6 @@ func New(opt *options.Options) (*Runner, error) {
 	r.domainChan = make(chan string, 50000)
 	r.resultChan = make(chan result.Result, 5000)
 	r.stopSignal = make(chan struct{})
-
-	// 获取空闲端口
-	freePort, err := freeport.GetFreePort()
-	if err != nil {
-		return nil, err
-	}
-	r.listenPort = freePort
-	gologger.Infof("监听端口: %d\n", freePort)
 
 	// 设置其他参数
 	r.dnsID = 0x2021 // ksubdomain的生日
@@ -214,38 +231,37 @@ func (r *Runner) processPredictedDomains(ctx context.Context, wg *sync.WaitGroup
 // RunEnumeration runs the full scan pipeline until all domains have been
 // sent, retried, and their results collected (or the context is cancelled).
 //
-// Goroutine topology (all started here):
+// Goroutine topology (multi-NIC A1 pattern):
 //
-//	loadDomainsFromSource ──► domainChan ──► sendCycleWithContext ──► pcap
+//	loadDomainsFromSource ──► domainChan ──┬──► sendCycleForIface(iface0) ──► pcap(iface0)
+//	                                        ├──► sendCycleForIface(iface1) ──► pcap(iface1)
+//	                                        └──► ...（共享 domainChan，竞争消费）
 //	                                                  │
 //	                                             statusDB (sharded 64-bucket)
 //	                                                  │
 //	                              retry() (200 ms tick) ──► re-inject timed-out
 //	                                                  │
-//	                          recvChanel ──► packetChan ──► dnsChanel
-//	                                                             │
-//	                                              handleResultWithContext
+//	                          recvChanelForIface(iface0) ──► dnsChanel ──► handleResultWithContext
+//	                          recvChanelForIface(iface1) ──► dnsChanel ──► handleResultWithContext
 //	                                                             │
 //	                                                       resultChan
 //	                                                             │
 //	                                                     outputter.Output
-//
-// Completion is detected by monitorProgress: the scan is done when
-// statusDB is empty AND domainChan is drained AND initialLoadDone is set.
 func (r *Runner) RunEnumeration(ctx context.Context) {
 	// 创建可取消的上下文
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
-	// 创建等待组，现在需要等待5个goroutine（添加了sendCycle和handleResult）
+	// wg.Add：3 固定 goroutine（monitorProgress + handleResult + loadDomains）
+	//        + len(ifaces)*2（send*N + recv*N）
 	wg := &sync.WaitGroup{}
-	wg.Add(5)
+	wg.Add(3 + len(r.ifaces)*2)
 
-	// 启动接收处理
-	go r.recvChanel(ctx, wg)
-
-	// 启动发送处理（加入waitgroup管理）
-	go r.sendCycleWithContext(ctx, wg)
+	// 为每张网卡启动独立的 send/recv goroutine
+	for _, iface := range r.ifaces {
+		go r.recvChanelForIface(ctx, wg, iface)
+		go r.sendCycleForIface(ctx, wg, iface)
+	}
 
 	// 监控进度
 	go r.monitorProgress(ctx, cancelFunc, wg)
@@ -254,13 +270,12 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 	predictChan := make(chan string, 1000)
 	if r.options.Predict {
 		wg.Add(1)
-		// 启动预测域名处理
 		go r.processPredictedDomains(ctx, wg, predictChan)
 	} else {
 		r.predictLoadDone <- struct{}{}
 	}
 
-	// 启动结果处理（加入waitgroup管理）
+	// 启动结果处理
 	go r.handleResultWithContext(ctx, wg, predictChan)
 
 	// 从源加载域名
@@ -278,9 +293,11 @@ func (r *Runner) RunEnumeration(ctx context.Context) {
 
 // Close 关闭Runner并释放资源
 func (r *Runner) Close() {
-	// 关闭网络抓包句柄
-	if r.pcapHandle != nil {
-		r.pcapHandle.Close()
+	// 关闭所有网卡的 pcap 句柄
+	for _, iface := range r.ifaces {
+		if iface.pcapHandle != nil {
+			iface.pcapHandle.Close()
+		}
 	}
 
 	// 关闭状态数据库

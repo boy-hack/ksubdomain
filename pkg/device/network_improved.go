@@ -320,6 +320,139 @@ func getMACAddress(deviceName string) (net.HardwareAddr, error) {
 	return nil, fmt.Errorf("无法获取MAC地址")
 }
 
+// GetInterfaceByName 根据网卡名称获取其 EtherTable 配置。
+//
+// 策略：
+//  1. 先通过 GetDefaultRouteGateway 拿到默认网关 IP。
+//  2. 对指定网卡执行 getInterfaceDetails（含 ARP 探测网关 MAC）。
+//  3. 若 ARP 失败，复用默认路由网卡的 DstMac（网关 MAC 相同），只替换 Device/SrcIP/SrcMac。
+//
+// userDNS 用于在路由探测完全失败时回退到 DNS 探测。
+func GetInterfaceByName(name string, userDNS []string) (*EtherTable, error) {
+	gologger.Infof("获取网卡 %s 的配置信息...\n", name)
+
+	// 步骤1：获取默认网关 IP
+	gatewayIP, err := GetDefaultGatewayIP()
+	if err != nil {
+		// 路由方法失败，整体回退到 DNS 探测（覆盖 Device）
+		gologger.Warningf("获取默认网关失败，DNS 探测回退: %v\n", err)
+		et, err2 := AutoGetDevices(userDNS)
+		if err2 != nil {
+			return nil, fmt.Errorf("网卡 %s 配置探测失败: %v", name, err2)
+		}
+		et.Device = name
+		return et, nil
+	}
+
+	// 步骤2：用网关 IP 对指定网卡做 ARP 解析，获取完整 EtherTable
+	etherTable, err := getInterfaceDetails(name, gatewayIP)
+	if err != nil {
+		gologger.Warningf("网卡 %s ARP 探测失败: %v，尝试从默认路由复用网关 MAC\n", name, err)
+
+		// 步骤3：退而求其次——直接获取网卡的 IP/MAC，网关 MAC 从默认路由卡复用
+		defaultEther, err2 := GetDefaultRouteInterface()
+		if err2 != nil {
+			return nil, fmt.Errorf("无法获取网卡 %s 的完整配置: %v", name, err)
+		}
+
+		// 获取指定网卡的 IP/MAC
+		iface, err2 := net.InterfaceByName(name)
+		if err2 != nil {
+			return nil, fmt.Errorf("网卡 %s 不存在: %v", name, err2)
+		}
+		addrs, _ := iface.Addrs()
+		var srcIP net.IP
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip != nil && ip.To4() != nil && !ip.IsLoopback() {
+				srcIP = ip.To4()
+				break
+			}
+		}
+		if srcIP == nil {
+			srcIP = defaultEther.SrcIp
+		}
+
+		return &EtherTable{
+			SrcIp:  srcIP,
+			Device: name,
+			SrcMac: SelfMac(iface.HardwareAddr),
+			DstMac: defaultEther.DstMac, // 复用网关 MAC
+		}, nil
+	}
+
+	return etherTable, nil
+}
+
+// GetDefaultGatewayIP 获取系统默认网关的 IP 地址。
+func GetDefaultGatewayIP() (net.IP, error) {
+	switch runtime.GOOS {
+	case "linux":
+		cmd := exec.Command("ip", "route", "show", "default")
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("ip route 失败: %v", err)
+		}
+		for _, line := range strings.Split(string(output), "\n") {
+			fields := strings.Fields(line)
+			// default via <gateway> dev <iface> ...
+			if len(fields) >= 3 && fields[0] == "default" && fields[1] == "via" {
+				ip := net.ParseIP(fields[2])
+				if ip != nil {
+					return ip, nil
+				}
+			}
+		}
+		return nil, fmt.Errorf("未能解析默认网关")
+
+	case "darwin":
+		cmd := exec.Command("route", "get", "default")
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("route get default 失败: %v", err)
+		}
+		for _, line := range strings.Split(string(output), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "gateway:") {
+				parts := strings.SplitN(line, ":", 2)
+				if len(parts) == 2 {
+					ip := net.ParseIP(strings.TrimSpace(parts[1]))
+					if ip != nil {
+						return ip, nil
+					}
+				}
+			}
+		}
+		return nil, fmt.Errorf("未能解析默认网关")
+
+	case "windows":
+		cmd := exec.Command("route", "print", "0.0.0.0")
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("route print 失败: %v", err)
+		}
+		for _, line := range strings.Split(string(output), "\n") {
+			if strings.Contains(line, "0.0.0.0") {
+				fields := strings.Fields(line)
+				if len(fields) >= 3 {
+					ip := net.ParseIP(fields[2])
+					if ip != nil {
+						return ip, nil
+					}
+				}
+			}
+		}
+		return nil, fmt.Errorf("未能解析默认网关")
+	}
+	return nil, fmt.Errorf("不支持的操作系统: %s", runtime.GOOS)
+}
+
 // AutoGetDevicesImproved 改进的自动获取网卡方法
 // 优先使用路由表和ARP，失败时再回退到DNS探测
 func AutoGetDevicesImproved(userDNS []string) (*EtherTable, error) {

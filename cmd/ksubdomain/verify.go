@@ -116,10 +116,11 @@ var commonFlags = []cli.Flag{
 	
 	// Network interface
 	// Internationalization: interface (recommended) replaces eth (kept for compatibility)
-	&cli.StringFlag{
+	// 支持多次指定（--eth eth0 --eth eth1）以开启多网卡并发发包
+	&cli.StringSliceFlag{
 		Name:    "interface",
 		Aliases: []string{"eth", "e", "i"},
-		Usage:   "Network interface name (e.g., eth0, en0, wlan0) [Recommended: use --interface]",
+		Usage:   "Network interface name(s); can be repeated for multi-NIC (e.g. --eth eth0 --eth eth1) [Recommended: use --interface]",
 	},
 	
 	// Wildcard filter
@@ -257,7 +258,11 @@ var verifyCommand = &cli.Command{
 			// Fallback to old parameter for compatibility
 			bandwidthValue = c.String("band")
 		}
-		
+
+		// 收集网卡列表（支持重复 --eth 多网卡）
+		ethNames := c.StringSlice("interface")
+		etherInfos := options.GetDeviceConfigs(ethNames, resolver)
+
 		opt := &options.Options{
 			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
@@ -268,7 +273,8 @@ var verifyCommand = &cli.Command{
 			Method:             options.VerifyType,
 			Writer:             writer,
 			ProcessBar:         processBar,
-			EtherInfo:          options.GetDeviceConfig(resolver),
+			EtherInfo:          etherInfos[0], // 向后兼容
+			EtherInfos:         etherInfos,
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			Predict:            c.Bool("predict"),
 		}

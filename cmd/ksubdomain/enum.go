@@ -206,6 +206,10 @@ var enumCommand = &cli.Command{
 			bandwidthValue = c.String("band")
 		}
 
+		// 收集网卡列表（支持重复 --eth 多网卡）
+		ethNames := c.StringSlice("interface")
+		etherInfos := options.GetDeviceConfigs(ethNames, defaultResolver)
+
 		opt := &options.Options{
 			Rate:               options.Band2Rate(bandwidthValue),
 			Domain:             render,
@@ -220,9 +224,10 @@ var enumCommand = &cli.Command{
 			WildcardFilterMode: c.String("wild-filter-mode"),
 			WildIps:            wildIPS,
 			Predict:            c.Bool("predict"),
+			EtherInfo:          etherInfos[0], // 向后兼容
+			EtherInfos:         etherInfos,
 		}
 		opt.Check()
-		opt.EtherInfo = options.GetDeviceConfig(defaultResolver)
 		ctx := context.Background()
 		r, err := runner.New(opt)
 		if err != nil {

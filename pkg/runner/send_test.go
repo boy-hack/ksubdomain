@@ -9,6 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// newTestIface 构建一个用于单元测试的 netInterface（无真实 pcap 句柄）
+func newTestIface(ether *device.EtherTable, port int) *netInterface {
+	return &netInterface{
+		etherInfo:  ether,
+		pcapHandle: nil,
+		listenPort: port,
+	}
+}
+
 // TestGetOrCreate_TemplateCache 测试模板缓存功能
 func TestGetOrCreate_TemplateCache(t *testing.T) {
 	ether := &device.EtherTable{
@@ -18,15 +27,15 @@ func TestGetOrCreate_TemplateCache(t *testing.T) {
 	}
 
 	dnsServer := "8.8.8.8"
-	port := uint16(12345)
+	iface := newTestIface(ether, 12345)
 
 	// 首次调用 - 创建模板
-	template1 := getOrCreate(dnsServer, ether, port)
+	template1 := iface.getOrCreate(dnsServer)
 	assert.NotNil(t, template1)
 	assert.Equal(t, dnsServer, template1.dnsip.String())
 
 	// 第二次调用 - 应该从缓存获取
-	template2 := getOrCreate(dnsServer, ether, port)
+	template2 := iface.getOrCreate(dnsServer)
 	assert.NotNil(t, template2)
 
 	// 应该是同一个对象 (指针相同)
@@ -41,10 +50,10 @@ func TestGetOrCreate_DifferentServers(t *testing.T) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
-	port := uint16(12345)
+	iface := newTestIface(ether, 12345)
 
-	template1 := getOrCreate("8.8.8.8", ether, port)
-	template2 := getOrCreate("1.1.1.1", ether, port)
+	template1 := iface.getOrCreate("8.8.8.8")
+	template2 := iface.getOrCreate("1.1.1.1")
 
 	// 不同的 DNS 服务器应该有不同的模板
 	assert.NotEqual(t, template1, template2)
@@ -60,12 +69,13 @@ func TestGetOrCreate_DifferentPorts(t *testing.T) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
-	dnsServer := "8.8.8.8"
+	iface1 := newTestIface(ether, 12345)
+	iface2 := newTestIface(ether, 54321)
 
-	template1 := getOrCreate(dnsServer, ether, 12345)
-	template2 := getOrCreate(dnsServer, ether, 54321)
+	template1 := iface1.getOrCreate("8.8.8.8")
+	template2 := iface2.getOrCreate("8.8.8.8")
 
-	// 不同端口应该有不同的模板
+	// 不同端口（不同 iface）应该有不同的模板
 	assert.NotEqual(t, template1, template2)
 	assert.Equal(t, layers.UDPPort(12345), template1.udp.SrcPort)
 	assert.Equal(t, layers.UDPPort(54321), template2.udp.SrcPort)
@@ -79,8 +89,7 @@ func TestGetOrCreate_Concurrent(t *testing.T) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
-	dnsServer := "8.8.8.8"
-	port := uint16(12345)
+	iface := newTestIface(ether, 12345)
 
 	concurrency := 100
 	var wg sync.WaitGroup
@@ -92,7 +101,7 @@ func TestGetOrCreate_Concurrent(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			templates[idx] = getOrCreate(dnsServer, ether, port)
+			templates[idx] = iface.getOrCreate("8.8.8.8")
 		}(i)
 	}
 
@@ -114,23 +123,23 @@ func TestTemplateCache_MultipleServers(t *testing.T) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
-	port := uint16(53)
+	iface := newTestIface(ether, 53)
 
 	// 常见的公共 DNS 服务器
 	dnsServers := []string{
-		"8.8.8.8",       // Google
-		"8.8.4.4",       // Google
-		"1.1.1.1",       // Cloudflare
-		"1.0.0.1",       // Cloudflare
+		"8.8.8.8",         // Google
+		"8.8.4.4",         // Google
+		"1.1.1.1",         // Cloudflare
+		"1.0.0.1",         // Cloudflare
 		"114.114.114.114", // 114 DNS
-		"223.5.5.5",     // 阿里 DNS
+		"223.5.5.5",       // 阿里 DNS
 	}
 
 	templates := make(map[string]*packetTemplate)
 
 	// 为每个 DNS 服务器创建模板
 	for _, dns := range dnsServers {
-		templates[dns] = getOrCreate(dns, ether, port)
+		templates[dns] = iface.getOrCreate(dns)
 	}
 
 	// 验证每个服务器都有唯一的模板
@@ -138,7 +147,7 @@ func TestTemplateCache_MultipleServers(t *testing.T) {
 		for j, dns2 := range dnsServers {
 			if i == j {
 				// 同一个服务器,再次获取应该是缓存
-				cached := getOrCreate(dns1, ether, port)
+				cached := iface.getOrCreate(dns1)
 				assert.Equal(t, templates[dns1], cached)
 			} else {
 				// 不同服务器,模板应该不同
@@ -156,12 +165,13 @@ func BenchmarkGetOrCreate_CacheHit(b *testing.B) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
+	iface := newTestIface(ether, 53)
 	// 预热缓存
-	_ = getOrCreate("8.8.8.8", ether, 53)
+	_ = iface.getOrCreate("8.8.8.8")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = getOrCreate("8.8.8.8", ether, 53)
+		_ = iface.getOrCreate("8.8.8.8")
 	}
 }
 
@@ -173,11 +183,13 @@ func BenchmarkGetOrCreate_CacheMiss(b *testing.B) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
+	iface := newTestIface(ether, 53)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// 每次使用不同的DNS服务器,触发缓存未命中
 		dns := "8.8.8." + string(rune(i%255))
-		_ = getOrCreate(dns, ether, 53)
+		_ = iface.getOrCreate(dns)
 	}
 }
 
@@ -189,9 +201,11 @@ func BenchmarkGetOrCreate_Concurrent(b *testing.B) {
 		DstMac: device.SelfMac{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
 	}
 
+	iface := newTestIface(ether, 53)
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = getOrCreate("8.8.8.8", ether, 53)
+			_ = iface.getOrCreate("8.8.8.8")
 		}
 	})
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/v2/pkg/device"
 	"github.com/boy-hack/ksubdomain/v2/pkg/runner/statusdb"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -26,23 +25,16 @@ type packetTemplate struct {
 	dnsip net.IP
 }
 
-// templateCache 全局DNS服务器模板缓存
-// 优化说明: DNS服务器数量有限(通常<10个),每次创建模板开销较大
-// 使用 sync.Map 缓存模板,避免重复创建以太网/IP/UDP层
-// 预期性能提升: 5-10% (减少内存分配和IP解析开销)
-var templateCache sync.Map
-
-// getOrCreate 获取或创建DNS服务器的数据包模板
-// 优化: 添加模板缓存,同一DNS服务器只创建一次模板
-func getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *packetTemplate {
-	// 优化点1: 先尝试从缓存获取,避免重复创建
-	// key格式: dnsname_freeport (同一DNS可能使用不同源端口)
+// getOrCreate 获取或创建 DNS 服务器的数据包模板（绑定到单张网卡的 templateCache）。
+// key 格式：dnsname_freeport
+func (iface *netInterface) getOrCreate(dnsname string) *packetTemplate {
+	freeport := uint16(iface.listenPort)
 	cacheKey := dnsname + "_" + string(rune(freeport))
-	if cached, ok := templateCache.Load(cacheKey); ok {
+	if cached, ok := iface.templateCache.Load(cacheKey); ok {
 		return cached.(*packetTemplate)
 	}
 
-	// 缓存未命中,创建新模板
+	ether := iface.etherInfo
 	DstIp := net.ParseIP(dnsname).To4()
 	eth := &layers.Ethernet{
 		SrcMAC:       ether.SrcMac.HardwareAddr(),
@@ -54,7 +46,7 @@ func getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *pac
 		Version:    4,
 		IHL:        5,
 		TOS:        0,
-		Length:     0, // FIX
+		Length:     0,
 		Id:         0,
 		Flags:      layers.IPv4DontFragment,
 		FragOffset: 0,
@@ -84,114 +76,51 @@ func getOrCreate(dnsname string, ether *device.EtherTable, freeport uint16) *pac
 		buf: gopacket.NewSerializeBuffer(),
 	}
 
-	// 存入缓存供后续复用
-	templateCache.Store(cacheKey, template)
+	iface.templateCache.Store(cacheKey, template)
 	return template
 }
 
-// sendCycle 实现发送域名请求的循环
-func (r *Runner) sendCycle() {
-	// 从发送通道接收域名，分发给工作协程
-	for domain := range r.domainChan {
-		r.rateLimiter.Take()
-		v, ok := r.statusDB.Get(domain)
-		if !ok {
-			v = statusdb.Item{
-				Domain:      domain,
-				Dns:         r.selectDNSServer(domain),
-				Time:        time.Now(),
-				Retry:       0,
-				DomainLevel: 0,
-			}
-			r.statusDB.Add(domain, v)
-		} else {
-			v.Retry += 1
-			v.Time = time.Now()
-			v.Dns = r.selectDNSServer(domain)
-			r.statusDB.Set(domain, v)
-		}
-		send(domain, v.Dns, r.options.EtherInfo, r.dnsID, uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
-		atomic.AddUint64(&r.sendCount, 1)
-	}
-}
-
-// sendCycleWithContext implements the main send loop.
-//
-// Architecture overview:
-//
-//	domainChan ──► rateLimiter.Take() ──► statusDB.Add/Set ──► send()
-//	                                                               │
-//	                                                      pcap.WritePacketData
-//
-// Domains arrive on domainChan from two sources:
-//  1. loadDomainsFromSource — the initial wordlist / input feed
-//  2. retry() — re-injected timed-out domains
-//
-// Batching (batchSize=100, flush every 10 ms):
-//   Collecting N domains before calling send() amortises the per-call
-//   gopacket serialisation overhead and reduces CPU instruction-cache
-//   misses.  The 10 ms ticker ensures low-volume scans are not delayed.
-//
-// Backpressure: sendBatch checks the recvBackpressure flag set by
-//   recv.go when packetChan is ≥80% full, and sleeps 5 ms to let the
-//   receive pipeline drain.  This prevents packet loss under high load.
-func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
+// sendCycleForIface 为单张网卡运行发送循环（A1 方案）。
+// 多个 goroutine 共享同一个 domainChan，竞争消费实现自然负载均衡。
+func (r *Runner) sendCycleForIface(ctx context.Context, wg *sync.WaitGroup, iface *netInterface) {
 	defer wg.Done()
 
-	// 优化点2: 批量发送机制
-	// 批量大小: 每次收集100个域名后一起处理
-	// 收益: 减少系统调用次数,提升发包吞吐量 20-30%
 	const batchSize = 100
 	batch := make([]string, 0, batchSize)
 	batchItems := make([]statusdb.Item, 0, batchSize)
 
-	// 定时器: 确保即使凑不满批次也能及时发送
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 
-	// 批量发送函数
 	sendBatch := func() {
 		if len(batch) == 0 {
 			return
 		}
-
-		// 批量发送所有域名
 		for i, domain := range batch {
-			send(domain, batchItems[i].Dns, r.options.EtherInfo, r.dnsID,
-				uint16(r.listenPort), r.pcapHandle, layers.DNSTypeA)
+			send(domain, batchItems[i].Dns, iface, r.dnsID, layers.DNSTypeA)
 		}
-
-		// 原子更新发送计数
 		atomic.AddUint64(&r.sendCount, uint64(len(batch)))
-
-		// 清空批次,复用底层数组
 		batch = batch[:0]
 		batchItems = batchItems[:0]
 	}
 
-	// 主循环: 收集域名并批量发送
 	for {
 		select {
 		case <-ctx.Done():
-			// 退出前发送剩余批次
 			sendBatch()
 			return
 
 		case <-ticker.C:
-			// 定时发送,避免批次未满时延迟过高
 			sendBatch()
 
 		case domain, ok := <-r.domainChan:
 			if !ok {
-				// 通道关闭,发送剩余批次后退出
 				sendBatch()
 				return
 			}
 
-			// 速率限制
 			r.rateLimiter.Take()
 
-			// 获取或创建域名状态
 			v, ok := r.statusDB.Get(domain)
 			if !ok {
 				v = statusdb.Item{
@@ -209,11 +138,9 @@ func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
 				r.statusDB.Set(domain, v)
 			}
 
-			// 添加到批次
 			batch = append(batch, domain)
 			batchItems = append(batchItems, v)
 
-			// 批次已满,立即发送
 			if len(batch) >= batchSize {
 				sendBatch()
 			}
@@ -221,25 +148,20 @@ func (r *Runner) sendCycleWithContext(ctx context.Context, wg *sync.WaitGroup) {
 	}
 }
 
-// send 发送单个DNS查询包
-func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16, freeport uint16, handle *pcap.Handle, dnsType layers.DNSType) {
-	// 复用DNS服务器的包模板
-	template := getOrCreate(dnsname, ether, freeport)
+// send 发送单个DNS查询包（绑定到指定网卡上下文）
+func send(domain string, dnsname string, iface *netInterface, dnsid uint16, dnsType layers.DNSType) {
+	template := iface.getOrCreate(dnsname)
 
-	// 从内存池获取DNS层对象
 	dns := GlobalMemPool.GetDNS()
 	defer GlobalMemPool.PutDNS(dns)
 
-	// 设置DNS查询参数
 	dns.ID = dnsid
 	dns.QDCount = 1
-	dns.RD = true // 递归查询标识
+	dns.RD = true
 
-	// 从内存池获取questions切片
 	questions := GlobalMemPool.GetDNSQuestions()
 	defer GlobalMemPool.PutDNSQuestions(questions)
 
-	// 添加查询问题
 	questions = append(questions, layers.DNSQuestion{
 		Name:  []byte(domain),
 		Type:  dnsType,
@@ -247,11 +169,9 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 	})
 	dns.Questions = questions
 
-	// 从内存池获取序列化缓冲区
 	buf := GlobalMemPool.GetBuffer()
 	defer GlobalMemPool.PutBuffer(buf)
 
-	// 序列化数据包
 	err := gopacket.SerializeLayers(
 		buf,
 		template.opts,
@@ -262,40 +182,34 @@ func send(domain string, dnsname string, ether *device.EtherTable, dnsid uint16,
 		return
 	}
 
-	// 发送数据包
-	// 修复 Mac 缓冲区问题: 增加重试机制,使用指数退避
+	handle := iface.pcapHandle
 	const maxRetries = 3
 	for retry := 0; retry < maxRetries; retry++ {
 		err = handle.WritePacketData(buf.Bytes())
 		if err == nil {
-			return  // 发送成功
+			return
 		}
-		
+
 		errMsg := err.Error()
-		
-		// 检查是否为缓冲区错误 (Mac/Linux 常见)
-		// Mac BPF: "No buffer space available" (ENOBUFS)
-		// Linux: 可能有类似错误
+
 		isBufferError := strings.Contains(errMsg, "No buffer space available") ||
 			strings.Contains(errMsg, "ENOBUFS") ||
 			strings.Contains(errMsg, "buffer")
-		
+
 		if isBufferError {
-			// 缓冲区满,需要重试
 			if retry < maxRetries-1 {
-				// 指数退避: 10ms, 20ms, 40ms
 				backoff := time.Millisecond * time.Duration(10*(1<<uint(retry)))
 				time.Sleep(backoff)
-				continue  // 重试
-			} else {
-				// 最后一次重试也失败,放弃该包
-				// 不打印警告,避免刷屏 (在高速模式下很正常)
-				return
+				continue
 			}
+			return
 		}
-		
-		// 其他错误 (非缓冲区问题),不重试
+
 		gologger.Warningf("WritePacketData error: %s\n", errMsg)
 		return
 	}
 }
+
+// 保留旧 pcap.Handle 签名的引用，避免 recv.go 里的 testspeed 等直接用 handle 的地方编译失败。
+// 实际发送路径已全部走 send(domain, dnsname, iface, ...)。
+var _ = (*pcap.Handle)(nil)

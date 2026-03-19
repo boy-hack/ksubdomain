@@ -1,11 +1,13 @@
 package runner
 
 import (
-	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
-	"github.com/boy-hack/ksubdomain/v2/pkg/device"
-	"github.com/phayes/freeport"
 	"net"
 	"time"
+
+	"github.com/boy-hack/ksubdomain/v2/pkg/core/gologger"
+	"github.com/boy-hack/ksubdomain/v2/pkg/device"
+	"github.com/google/gopacket/layers"
+	"github.com/phayes/freeport"
 )
 
 func TestSpeed(ether *device.EtherTable) {
@@ -25,9 +27,17 @@ func TestSpeed(ether *device.EtherTable) {
 		gologger.Fatalf("初始化pcap失败,error:" + err.Error())
 		return
 	}
+
+	// 构建临时 netInterface 用于 send()
+	iface := &netInterface{
+		etherInfo:  ether,
+		pcapHandle: handle,
+		listenPort: tmpFreeport,
+	}
+
 	var now int64
 	for {
-		send("www.hacking8.com", "1.1.1.2", ether, dnsid, uint16(tmpFreeport), handle, 1)
+		send("www.hacking8.com", "1.1.1.2", iface, dnsid, layers.DNSTypeA)
 		index++
 		now = time.Now().UnixNano() / 1e6
 		tickTime := (now - start) / 1000

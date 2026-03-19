@@ -27,11 +27,24 @@ type Options struct {
 	Method             OptionMethod       // verify模式 enum模式 test模式
 	Writer             []outputter.Output // 输出结构
 	ProcessBar         processbar.ProcessBar
-	EtherInfo          *device2.EtherTable // 网卡信息
-	SpecialResolvers   map[string][]string // 可针对特定域名使用的dns resolvers
-	WildcardFilterMode string              // 泛解析过滤模式: "basic", "advanced", "none"
+	EtherInfo          *device2.EtherTable   // 网卡信息（向后兼容，保留单卡字段）
+	EtherInfos         []*device2.EtherTable // 多网卡信息列表
+	SpecialResolvers   map[string][]string   // 可针对特定域名使用的dns resolvers
+	WildcardFilterMode string                // 泛解析过滤模式: "basic", "advanced", "none"
 	WildIps            []string
 	Predict            bool // 是否开启预测模式
+}
+
+// AllEtherInfos 返回所有网卡配置。
+// 若 EtherInfos 非空则直接返回；否则将 EtherInfo 包装为单元素切片返回，保持向后兼容。
+func (opt *Options) AllEtherInfos() []*device2.EtherTable {
+	if len(opt.EtherInfos) > 0 {
+		return opt.EtherInfos
+	}
+	if opt.EtherInfo != nil {
+		return []*device2.EtherTable{opt.EtherInfo}
+	}
+	return nil
 }
 
 func Band2Rate(bandWith string) int64 {

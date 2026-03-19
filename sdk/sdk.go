@@ -61,8 +61,12 @@ type Config struct {
 	// DNS resolvers; nil means built-in defaults
 	Resolvers []string
 
-	// Network adapter name; empty means auto-detect
+	// Network adapter name; empty means auto-detect (single NIC, kept for backward-compat)
 	Device string
+
+	// Devices specifies one or more network interface names for multi-NIC parallel sending.
+	// If non-empty, takes precedence over Device.
+	Devices []string
 
 	// Dictionary file path (for Enum mode); empty means built-in list
 	Dictionary string
@@ -216,7 +220,7 @@ func (s *Scanner) buildDictChan(domain string) (chan string, error) {
 // buildOptions constructs runner.Options from the scanner config.
 // primaryWriter is the SDK-internal writer (resultCollector or streamCollector).
 // Any ExtraWriters from config are appended after it.
-func (s *Scanner) buildOptions(domainChan chan string, method string, primaryWriter outputter.Output) *options.Options {
+func (s *Scanner) buildOptions(domainChan chan string, method options.OptionMethod, primaryWriter outputter.Output) *options.Options {
 	resolvers := options.GetResolvers(s.config.Resolvers)
 
 	writers := make([]outputter.Output, 0, 1+len(s.config.ExtraWriters))
@@ -231,20 +235,30 @@ func (s *Scanner) buildOptions(domainChan chan string, method string, primaryWri
 		Retry:              s.config.Retry,
 		Method:             method,
 		Writer:             writers,
-		ProcessBar:         &processbar2.FakeProcess{},
-		EtherInfo:          options.GetDeviceConfig(resolvers),
+		ProcessBar:         &processbar2.FakeScreenProcess{},
 		WildcardFilterMode: s.config.WildcardFilter,
 		Predict:            s.config.Predict,
 	}
-	if s.config.Device != "" {
-		opt.EtherInfo.Device = s.config.Device
+
+	// 多网卡支持：Devices 优先，否则退回 Device 单卡或自动探测
+	if len(s.config.Devices) > 0 {
+		etherInfos := options.GetDeviceConfigs(s.config.Devices, resolvers)
+		opt.EtherInfos = etherInfos
+		opt.EtherInfo = etherInfos[0]
+	} else {
+		et := options.GetDeviceConfig(resolvers)
+		if s.config.Device != "" {
+			et.Device = s.config.Device
+		}
+		opt.EtherInfo = et
 	}
+
 	opt.Check()
 	return opt
 }
 
 // scanCollect runs the scan and returns collected results.
-func (s *Scanner) scanCollect(ctx context.Context, domainChan chan string, method string) ([]Result, error) {
+func (s *Scanner) scanCollect(ctx context.Context, domainChan chan string, method options.OptionMethod) ([]Result, error) {
 	collector := &resultCollector{results: make([]Result, 0)}
 	opt := s.buildOptions(domainChan, method, collector)
 	r, err := runner.New(opt)
@@ -257,7 +271,7 @@ func (s *Scanner) scanCollect(ctx context.Context, domainChan chan string, metho
 }
 
 // scanStream runs the scan, calling callback for each result in real-time.
-func (s *Scanner) scanStream(ctx context.Context, domainChan chan string, method string, callback func(Result)) error {
+func (s *Scanner) scanStream(ctx context.Context, domainChan chan string, method options.OptionMethod, callback func(Result)) error {
 	streamer := &streamCollector{callback: callback}
 	opt := s.buildOptions(domainChan, method, streamer)
 	r, err := runner.New(opt)
